@@ -152,16 +152,11 @@ public class MainActivity extends Activity {
     private class MyWebViewClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            if (restricted) {
-                if (url.startsWith("https://duckduckgo.com") || url.startsWith("https://links.duckduckgo.com") || url.startsWith("https://duck.ai")) {
-                    return false;
-                } else {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                    return true;
-                }
-            }
-            return false;
+            // If the user clicks any link, redirect it to the default browser
+            // We return true to signify we have handled the intent.
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(intent);
+            return true;
         }
 
         @Override
