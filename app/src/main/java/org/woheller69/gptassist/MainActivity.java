@@ -107,38 +107,47 @@ public class MainActivity extends Activity {
         String action = intent.getAction();
         String type = intent.getType();
 
-        if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null) {
-            chatWebView.loadUrl(intent.getDataString());
-        } else if (Intent.ACTION_SEND.equals(action) && type != null) {
-            if ("text/plain".equals(type)) {
-                String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
-                if (sharedText != null) {
-                    loadDuckAiWithQuery(sharedText);
-                    return;
+        if (Intent.ACTION_VIEW.equals(action)) {
+            Uri data = intent.getData();
+            if (data != null) {
+                String query = data.getQueryParameter("q");
+                if (query != null && !query.isEmpty()) {
+                    pendingTextToPaste = query;
+                    chatWebView.loadUrl("https://duck.ai/");
+                } else {
+                    chatWebView.loadUrl(data.toString());
                 }
-            }
-            chatWebView.loadUrl("https://duckduckgo.com/?q=DuckDuckGo+AI+Chat&ia=chat");
-        } else if (Intent.ACTION_PROCESS_TEXT.equals(action)) {
-            CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
-            if (text != null) {
-                loadDuckAiWithQuery(text.toString());
             } else {
-                chatWebView.loadUrl("https://duckduckgo.com/?q=DuckDuckGo+AI+Chat&ia=chat");
+                chatWebView.loadUrl("https://duck.ai/");
+            }
+        } else if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
+            String sharedText = null;
+            if (Intent.ACTION_SEND.equals(action) && "text/plain".equals(type)) {
+                sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+            } else if (Intent.ACTION_PROCESS_TEXT.equals(action)) {
+                CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
+                if (text != null) sharedText = text.toString();
+            }
+
+            if (sharedText != null) {
+                // Act as a bridge: open using a fresh VIEW intent to trigger a new window/task
+                Uri duckUri = Uri.parse("https://duck.ai/").buildUpon()
+                        .appendQueryParameter("q", sharedText)
+                        .build();
+                Intent viewIntent = new Intent(Intent.ACTION_VIEW, duckUri);
+                viewIntent.setPackage(getPackageName()); // Ensure it opens in our app
+                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+                startActivity(viewIntent);
+                finish(); // Close the bridge instance
+            } else {
+                chatWebView.loadUrl("https://duck.ai/");
             }
         } else {
-            chatWebView.loadUrl("https://duckduckgo.com/?q=DuckDuckGo+AI+Chat&ia=chat");
+            chatWebView.loadUrl("https://duck.ai/");
         }
     }
 
-    private void loadDuckAiWithQuery(String query) {
-        if (query == null) return;
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("Ask duck.ai", query);
-        clipboard.setPrimaryClip(clip);
-        
-        pendingTextToPaste = query;
-        chatWebView.loadUrl("https://duck.ai/");
-    }
+
 
     private class MyWebViewClient extends WebViewClient {
         @Override
