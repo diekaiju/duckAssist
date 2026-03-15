@@ -27,6 +27,8 @@ Duck.ai is entirely private and secure. It requires no login, allowing you to in
 ### External Navigation
 Simply click on any link or citation provided by the AI. The app will instantly launch your preferred mobile browser to view the content, leaving your AI conversation perfectly preserved in duckAssist.
 
+## screenshots
+
 ## License
 
 This application is licensed under the GPLv3.
