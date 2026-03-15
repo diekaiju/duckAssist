@@ -1,6 +1,6 @@
 # duckAssist
 
-*This project is a professional fork of [gptAssist](https://github.com/woheller69/gptAssist).*
+*This project is a fork of [gptAssist](https://github.com/woheller69/gptAssist).*
 
 **duckAssist** is a lightweight, privacy-focused Android WebView wrapper designed specifically for [Duck.ai](https://duck.ai/) (DuckDuckGo's private AI chat service). It bridges the gap between web and native by providing advanced integration features while maintaining the core privacy principles of DuckDuckGo.
 
