@@ -8,15 +8,12 @@ Duck.ai is entirely private and secure. It requires no login, so you can start c
 
 ## Features
 
-- 🔒 **Privacy-First Approach**: Strictly restricts network requests to essential Duck.ai domains, blocking unnecessary tracking and external URLs.
 - 🎯 **Focused Interface**: Provides a clean, native-feeling chat experience without the distractions of a full mobile browser.
-- 🔄 **Toggleable Protection**: Easily switch between standard (restricted) and unrestricted browsing modes using the toggle button. Swipe up to hide the button and maximize screen real estate.
 - 📁 **File Support**: Seamlessly upload files for analysis from your device and download attachments directly to your Downloads folder.
 - 📱 **Lightweight & Fast**: A minimalistic application focused purely on stability and core AI chat functionality.
 
 ## Usage
 
-- **Restriction Toggle**: You can switch domain blocking on or off by tapping the button at the top right of the screen. Swipe up slightly on the chat view to hide this button.
 - **External Links**: If you long-press or tap an external link that is blocked by the app's security policy, the URL will be safely copied to your clipboard so you can open it externally in a standard web browser.
 
 ## License

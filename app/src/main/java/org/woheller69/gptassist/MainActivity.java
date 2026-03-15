@@ -63,14 +63,12 @@ import java.util.ArrayList;
 public class MainActivity extends Activity {
 
     private WebView chatWebView = null;
-    private ImageButton restrictedButton = null;
     private WebSettings chatWebSettings = null;
     private CookieManager chatCookieManager = null;
     private final Context context = this;
-    private SwipeTouchListener swipeTouchListener;
     private String TAG ="duckAssist";
     private String urlToLoad = "https://duck.ai/";
-    private static boolean restricted = true;
+    private static boolean restricted = false;
 
     private static final ArrayList<String> allowedDomains = new ArrayList<String>();
 
@@ -80,49 +78,14 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         if (chatCookieManager!=null) chatCookieManager.flush();
-        swipeTouchListener = null;
         super.onPause();
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
 
-        if (restricted) restrictedButton.setImageDrawable(getDrawable(R.drawable.restricted));
-        else restrictedButton.setImageDrawable(getDrawable(R.drawable.unrestricted));
-
-        restrictedButton.setOnClickListener(v -> {
-            restricted = !restricted;
-            if (restricted) {
-                restrictedButton.setImageDrawable(getDrawable(R.drawable.restricted));
-                Toast.makeText(context,R.string.urls_restricted,Toast.LENGTH_SHORT).show();
-                chatWebSettings.setUserAgentString(modUserAgent());
-            }
-            else {
-                restrictedButton.setImageDrawable(getDrawable(R.drawable.unrestricted));
-                Toast.makeText(context,R.string.all_urls,Toast.LENGTH_SHORT).show();
-                chatWebSettings.setUserAgentString(modUserAgent()); //Needed for login via Google
-            }
-            chatWebView.reload();
-        });
-
-        swipeTouchListener = new SwipeTouchListener(context) {
-            public void onSwipeBottom() {
-                if (!chatWebView.canScrollVertically(0)) {
-                    restrictedButton.setVisibility(View.VISIBLE);
-                }
-            }
-            public void onSwipeTop(){
-                    restrictedButton.setVisibility(View.GONE);
-            }
-        };
-
-        chatWebView.setOnTouchListener(swipeTouchListener);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        restricted = true;
+        restricted = false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             setTheme(android.R.style.Theme_DeviceDefault_DayNight);
         }
@@ -134,7 +97,6 @@ public class MainActivity extends Activity {
         //Create the WebView
         chatWebView = findViewById(R.id.chatWebView);
         registerForContextMenu(chatWebView);
-        restrictedButton = findViewById(R.id.restricted);
 
         //Set cookie options
         chatCookieManager = CookieManager.getInstance();
@@ -304,8 +266,8 @@ public class MainActivity extends Activity {
         chatWebSettings.setSaveFormData(false);
         chatWebSettings.setGeolocationEnabled(false);
 
-        //Load ChatGPT
-        chatWebView.loadUrl(urlToLoad);
+        //Load URL
+        handleIntent(getIntent());
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
         if (GithubStar.shouldShowStarDialog(this)) GithubStar.starDialog(this,"https://github.com/woheller69/gptassist");
     }
@@ -313,6 +275,26 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent != null && Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
+            String uriString = intent.getDataString();
+            if (uriString != null) {
+                chatWebView.loadUrl(uriString);
+            } else {
+                chatWebView.loadUrl(urlToLoad);
+            }
+        } else {
+            chatWebView.loadUrl(urlToLoad);
+        }
     }
 
     @Override
