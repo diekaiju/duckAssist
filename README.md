@@ -1,20 +1,31 @@
 # duckAssist
 
-*This project is a fork of [gptAssist](https://github.com/woheller69/gptAssist).*
+*This project is a professional fork of [gptAssist](https://github.com/woheller69/gptAssist).*
 
-duckAssist is a lightweight, privacy-focused Android WebView wrapper designed specifically for [Duck.ai](https://duck.ai/) (DuckDuckGo's private AI chat service). It ensures a seamless and secure experience by blocking all non-essential and tracking URLs.
+**duckAssist** is a lightweight, privacy-focused Android WebView wrapper designed specifically for [Duck.ai](https://duck.ai/) (DuckDuckGo's private AI chat service). It bridges the gap between web and native by providing advanced integration features while maintaining the core privacy principles of DuckDuckGo.
 
-Duck.ai is entirely private and secure. It requires no login, so you can start chatting immediately without compromising your personal information or creating an account.
+Duck.ai is entirely private and secure. It requires no login, allowing you to interact with multiple AI models (GPT-4o, Claude 3, Llama 3, etc.) without compromising your personal identity.
 
-## Features
+## Key Features
 
-- 🎯 **Focused Interface**: Provides a clean, native-feeling chat experience without the distractions of a full mobile browser.
-- 📁 **File Support**: Seamlessly upload files for analysis from your device and download attachments directly to your Downloads folder.
-- 📱 **Lightweight & Fast**: A minimalistic application focused purely on stability and core AI chat functionality.
+- 🎯 **Focused Interface**: A clean, distraction-free environment tailored for AI chat, complete with a native progress bar for page loading feedback.
+- 🚀 **"Ask duck.ai" Integration**: Select text in any application on your device and choose "Ask duck.ai" from the context menu. The app will automatically launch and paste your query directly into the chat.
+- 📑 **Multi-Window Support**: Every "Ask" trigger opens in a new Android task. This allows you to maintain multiple independent AI conversations and switch between them seamlessly via the Recents menu.
+- 🌐 **Smart Link Handling**: Navigation is optimized for the AI experience. All external links clicked within the app are automatically redirected to your system's default web browser, keeping your chat session secure and focused.
+- 🛡️ **Enhanced Privacy**:
+    - **Session Persistence**: User data and cookies are preserved so you don't lose your settings.
+    - **Automated Cache Management**: The application cache is purged whenever you leave or close the app to protect your privacy and save device storage.
+- 📁 **Native File Support**: Seamlessly upload documents for AI analysis and download attachments directly to your device's Downloads folder.
 
 ## Usage
 
-- **External Links**: If you long-press or tap an external link that is blocked by the app's security policy, the URL will be safely copied to your clipboard so you can open it externally in a standard web browser.
+### Ask duck.ai
+1. Highlight any text in your browser, email, or messaging app.
+2. Tap the three dots (overflow menu) and select **Ask duck.ai**.
+3. The app will open a new window and automatically paste your text into the chat prompt.
+
+### External Navigation
+Simply click on any link or citation provided by the AI. The app will instantly launch your preferred mobile browser to view the content, leaving your AI conversation perfectly preserved in duckAssist.
 
 ## License
 
@@ -25,7 +36,4 @@ The app uses:
 
 ## Contributing
 
-If you encounter any issues or bugs, please open an issue in the repository.
-- Clearly describe the issue, including steps to reproduce it. Screenshots are always helpful.
-- Mention your Android version and device model.
-- If you know a solution, feel free to report it or submit a pull request.
+If you encounter any issues or have suggestions for improvements, please open an issue in the repository. Pull requests are always welcome.
