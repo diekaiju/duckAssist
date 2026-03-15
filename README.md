@@ -29,6 +29,10 @@ Simply click on any link or citation provided by the AI. The app will instantly 
 
 ## screenshots
 
+![Screenshot 1](screenshot/image%20(1).jpg)
+![Screenshot 2](screenshot/image%20(2).jpg)
+![Screenshot 3](screenshot/image%20(3).jpg)
+
 ## License
 
 This application is licensed under the GPLv3.
