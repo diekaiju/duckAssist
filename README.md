@@ -29,8 +29,11 @@ Simply click on any link or citation provided by the AI. The app will instantly 
 
 ## screenshots
 
-![Screenshot 1](screenshot/image%20(1).png)
-
+<p align="center">
+  <img src="screenshot/image (1).jpg" width="30%" />
+  <img src="screenshot/image (2).jpg" width="30%" />
+  <img src="screenshot/image (3).jpg" width="30%" />
+</p>
 
 ## License
 
