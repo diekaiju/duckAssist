@@ -68,8 +68,8 @@ public class MainActivity extends Activity {
     private CookieManager chatCookieManager = null;
     private final Context context = this;
     private SwipeTouchListener swipeTouchListener;
-    private String TAG ="gptAssist";
-    private String urlToLoad = "https://chatgpt.com/";
+    private String TAG ="duckAssist";
+    private String urlToLoad = "https://duck.ai/";
     private static boolean restricted = true;
 
     private static final ArrayList<String> allowedDomains = new ArrayList<String>();
@@ -350,14 +350,8 @@ public class MainActivity extends Activity {
 
     private static void initURLs() {
         //Allowed Domains
-        allowedDomains.add("cdn.auth0.com");
-        allowedDomains.add("auth.openai.com");
-        allowedDomains.add("chatgpt.com");
-        allowedDomains.add("openai.com");
-        allowedDomains.add("fileserviceuploadsperm.blob.core.windows.net");
-        allowedDomains.add("cdn.oaistatic.com");
-        allowedDomains.add("oaiusercontent.com");
-
+        allowedDomains.add("duck.ai");
+        allowedDomains.add("duckduckgo.com");
     }
 
     @Override
