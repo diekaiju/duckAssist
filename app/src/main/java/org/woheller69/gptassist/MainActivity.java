@@ -163,7 +163,9 @@ public class MainActivity extends Activity {
                 chatWebView.loadUrl("https://duck.ai/");
             }
         } else {
-            chatWebView.loadUrl("https://duck.ai/");
+            if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty() || chatWebView.getUrl().equals("about:blank")) {
+                chatWebView.loadUrl("https://duck.ai/");
+            }
         }
     }
 

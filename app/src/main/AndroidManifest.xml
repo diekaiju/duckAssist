@@ -15,7 +15,6 @@
         <activity
             android:name="org.woheller69.gptassist.MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
-            android:documentLaunchMode="always"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
