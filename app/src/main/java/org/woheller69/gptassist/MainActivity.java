@@ -22,6 +22,7 @@ import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
+import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
@@ -43,6 +44,13 @@ public class MainActivity extends Activity {
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
     private String pendingTextToPaste = null;
+
+    private void clearCacheData() {
+        if (chatWebView != null) {
+            chatWebView.clearCache(true);
+        }
+        Log.d(TAG, "Cache cleared.");
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,6 +78,12 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             webSettings.setMediaPlaybackRequiresUserGesture(false);
         }
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        webSettings.setDatabaseEnabled(true);
+        webSettings.setDomStorageEnabled(true);
+        webSettings.setSaveFormData(false);
+        webSettings.setGeolocationEnabled(false);
+
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
@@ -93,6 +107,12 @@ public class MainActivity extends Activity {
 
         handleIntent(getIntent());
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        clearCacheData();
     }
 
     @Override
@@ -224,5 +244,13 @@ public class MainActivity extends Activity {
             }
         }
         return super.onKeyDown(keyCode, event);
+    }
+    @Override
+    protected void onDestroy() {
+        clearCacheData();
+        if (chatWebView != null) {
+            chatWebView.destroy();
+        }
+        super.onDestroy();
     }
 }
