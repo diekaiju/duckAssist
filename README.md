@@ -29,7 +29,7 @@ Simply click on any link or citation provided by the AI. The app will instantly 
 
 ## screenshots
 
-![Screenshot 1](screenshot/image%20(1).jpg)
+![Screenshot 1](screenshot/image%20(1).png)
 
 
 ## License
