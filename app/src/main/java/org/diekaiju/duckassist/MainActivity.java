@@ -34,6 +34,9 @@ import android.webkit.JavascriptInterface;
 import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.io.File;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.webkit.PermissionRequest;
 
 import androidx.webkit.URLUtilCompat;
 
@@ -51,6 +54,7 @@ public class MainActivity extends Activity {
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
     private String pendingTextToPaste = null;
+    private boolean pendingVoiceChat = false;
     private final String BLOB_JS = "(function() {" +
             "    if (window.blobHandlerInjected) return;" +
             "    window.blobHandlerInjected = true;" +
@@ -63,6 +67,49 @@ public class MainActivity extends Activity {
             "        return u;" +
             "    };" +
             "    console.log('Blob Handler Patch Active');" +
+            "})();";
+
+    private final String VOICE_JS = "(function() {" +
+            "  console.log('Voice Chat Trigger Started');" +
+            "  function tryClick() {" +
+            "    var sidebarBtn = document.querySelector('button[aria-label*=\"sidebar\"], button[aria-label*=\"Sidebar\"]');" +
+            "    if (sidebarBtn && sidebarBtn.offsetParent !== null) {" +
+            "      console.log('Opening sidebar first...');" +
+            "      sidebarBtn.click();" +
+            "    }" +
+            "    var elements = document.querySelectorAll('button, [role=\"button\"], div > span, a');" +
+            "    for (var i = 0; i < elements.length; i++) {" +
+            "      var text = (elements[i].innerText || elements[i].textContent || '').trim();" +
+            "      if (text.toLowerCase().includes('voice chat')) {" +
+            "        console.log('Target found: ' + text);" +
+            "        var clickTarget = elements[i];" +
+            "        while (clickTarget && clickTarget.tagName !== 'BUTTON' && clickTarget.getAttribute('role') !== 'button' && clickTarget.tagName !== 'A') {" +
+            "           clickTarget = clickTarget.parentElement;" +
+            "        }" +
+            "        if (!clickTarget) clickTarget = elements[i];" +
+            "        clickTarget.click();" +
+            "        console.log('Voice Chat Clicked!');" +
+            "        return true;" +
+            "      }" +
+            "    }" +
+            "    return false;" +
+            "  }" +
+            "  if (!tryClick()) {" +
+            "    console.log('Waiting for buttons...');" +
+            "    var observer = new MutationObserver(function(mutations, obs) {" +
+            "      if (tryClick()) {" +
+            "        obs.disconnect();" +
+            "        clearInterval(fallbackInterval);" +
+            "      }" +
+            "    });" +
+            "    observer.observe(document.body, { childList: true, subtree: true });" +
+            "    var fallbackInterval = setInterval(tryClick, 1000);" +
+            "    setTimeout(function() { " +
+            "      observer.disconnect(); " +
+            "      clearInterval(fallbackInterval); " +
+            "      console.log('Timeout after 15s');" +
+            "    }, 15000);" +
+            "  }" +
             "})();";
 
     private void clearCacheData() {
@@ -104,7 +151,6 @@ public class MainActivity extends Activity {
         webSettings.setSaveFormData(false);
         webSettings.setGeolocationEnabled(false);
 
-
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(chatWebView, true);
@@ -119,11 +165,13 @@ public class MainActivity extends Activity {
                         "(function() {" +
                                 "  var url = '" + url + "';" +
                                 "  var blob = window.blobMap ? window.blobMap.get(url) : null;" +
-                                "  console.log('Download request for: ' + url + ' (Map found: ' + (window.blobMap !== undefined) + ')');" +
+                                "  console.log('Download request for: ' + url + ' (Map found: ' + (window.blobMap !== undefined) + ')');"
+                                +
                                 "  if (blob) {" +
                                 "    var reader = new FileReader();" +
                                 "    reader.onloadend = function() {" +
-                                "      Android.processBlob(reader.result, blob.type, '" + escapedCD + "', window.location.href);" +
+                                "      Android.processBlob(reader.result, blob.type, '" + escapedCD
+                                + "', window.location.href);" +
                                 "    };" +
                                 "    reader.readAsDataURL(blob);" +
                                 "  } else {" +
@@ -136,14 +184,17 @@ public class MainActivity extends Activity {
                                 "        var reader = new FileReader();" +
                                 "        reader.readAsDataURL(this.response);" +
                                 "        reader.onloadend = function() {" +
-                                "          Android.processBlob(reader.result, '" + mimetype + "', '" + escapedCD + "', window.location.href);" +
+                                "          Android.processBlob(reader.result, '" + mimetype + "', '" + escapedCD
+                                + "', window.location.href);" +
                                 "        };" +
                                 "      }" +
                                 "    };" +
-                                "    xhr.onerror = function() { console.error('Blob fetch failed: CSP or not found'); };" +
+                                "    xhr.onerror = function() { console.error('Blob fetch failed: CSP or not found'); };"
+                                +
                                 "    xhr.send();" +
                                 "  }" +
-                                "})();", null);
+                                "})();",
+                        null);
                 return;
             } else if (url.startsWith("data:")) {
                 processBlob(url, mimetype, contentDisposition, url);
@@ -154,14 +205,21 @@ public class MainActivity extends Activity {
             request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url));
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
-            if (filename == null) filename = URLUtilCompat.guessFileName(url, contentDisposition, mimetype);
+            if (filename == null)
+                filename = URLUtilCompat.guessFileName(url, contentDisposition, mimetype);
             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
             Toast.makeText(this, getString(R.string.download) + " " + filename, Toast.LENGTH_SHORT).show();
             DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-            if (dm != null) dm.enqueue(request);
+            if (dm != null)
+                dm.enqueue(request);
         });
 
         chatWebView.addJavascriptInterface(this, "Android");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, 123);
+            }
+        }
         handleIntent(getIntent());
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
     }
@@ -190,7 +248,8 @@ public class MainActivity extends Activity {
                     try (OutputStream outputStream = getContentResolver().openOutputStream(uri)) {
                         byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
                         outputStream.write(data);
-                        runOnUiThread(() -> Toast.makeText(MainActivity.this, getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                                getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
                     }
                 }
             } else {
@@ -199,7 +258,8 @@ public class MainActivity extends Activity {
                 try (FileOutputStream os = new FileOutputStream(file)) {
                     byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
                     os.write(data);
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                            getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
                 }
             }
         } catch (Exception e) {
@@ -221,7 +281,8 @@ public class MainActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
-        if (intent == null) return;
+        if (intent == null)
+            return;
         String action = intent.getAction();
         String type = intent.getType();
 
@@ -244,7 +305,8 @@ public class MainActivity extends Activity {
                 sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
             } else if (Intent.ACTION_PROCESS_TEXT.equals(action)) {
                 CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
-                if (text != null) sharedText = text.toString();
+                if (text != null)
+                    sharedText = text.toString();
             }
 
             if (sharedText != null) {
@@ -260,14 +322,22 @@ public class MainActivity extends Activity {
             } else {
                 chatWebView.loadUrl("https://duck.ai/");
             }
+        } else if (Intent.ACTION_ASSIST.equals(action)) {
+            Log.d(TAG, "Assistance shortcut triggered");
+            String currentUrl = chatWebView.getUrl();
+            if (currentUrl != null && currentUrl.startsWith("https://duck.ai")) {
+                chatWebView.evaluateJavascript(VOICE_JS, null);
+            } else {
+                pendingVoiceChat = true;
+                chatWebView.loadUrl("https://duck.ai/");
+            }
         } else {
-            if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty() || chatWebView.getUrl().equals("about:blank")) {
+            if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
+                    || chatWebView.getUrl().equals("about:blank")) {
                 chatWebView.loadUrl("https://duck.ai/");
             }
         }
     }
-
-
 
     private class MyWebViewClient extends WebViewClient {
         @Override
@@ -292,12 +362,22 @@ public class MainActivity extends Activity {
             progressBar.setVisibility(View.GONE);
             view.evaluateJavascript(BLOB_JS, null);
             if (pendingTextToPaste != null && !pendingTextToPaste.isEmpty()) {
-                final String textToPaste = pendingTextToPaste.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+                final String textToPaste = pendingTextToPaste.replace("\\", "\\\\").replace("\"", "\\\"")
+                        .replace("\n", "\\n").replace("\r", "\\r");
                 view.evaluateJavascript(
                         "setTimeout(function() {" +
-                        "  document.execCommand('insertText', false, \"" + textToPaste + "\");" +
-                        "}, 1000);", null);
+                                "  document.execCommand('insertText', false, \"" + textToPaste + "\");" +
+                                "}, 1000);",
+                        null);
                 pendingTextToPaste = null;
+            }
+            if (pendingVoiceChat) {
+                view.evaluateJavascript(
+                        "setTimeout(function() {" +
+                                VOICE_JS +
+                                "}, 1500);",
+                        null);
+                pendingVoiceChat = false;
             }
         }
     }
@@ -317,7 +397,21 @@ public class MainActivity extends Activity {
             return true;
         }
 
-        public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
+        @Override
+        public void onPermissionRequest(final PermissionRequest request) {
+            MainActivity.this.runOnUiThread(() -> {
+                for (String resource : request.getResources()) {
+                    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                        request.grant(new String[] { resource });
+                        return;
+                    }
+                }
+                request.deny();
+            });
+        }
+
+        public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback,
+                WebChromeClient.FileChooserParams fileChooserParams) {
             if (mUploadMessage != null) {
                 mUploadMessage.onReceiveValue(null);
             }
@@ -334,12 +428,13 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
         super.onActivityResult(requestCode, resultCode, intent);
         if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
-            if (null == mUploadMessage) return;
+            if (null == mUploadMessage)
+                return;
             Uri[] result = null;
             if (resultCode == RESULT_OK && intent != null) {
                 String dataString = intent.getDataString();
                 if (dataString != null) {
-                    result = new Uri[]{Uri.parse(dataString)};
+                    result = new Uri[] { Uri.parse(dataString) };
                 }
             }
             mUploadMessage.onReceiveValue(result);
@@ -361,6 +456,7 @@ public class MainActivity extends Activity {
         }
         return super.onKeyDown(keyCode, event);
     }
+
     @Override
     protected void onDestroy() {
         clearCacheData();

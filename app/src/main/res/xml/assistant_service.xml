@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="org.diekaiju.duckassist.AssistantSessionService"
+    android:recognitionService="org.diekaiju.duckassist.AssistantRecognitionService"
+    android:supportsAssist="true"
+    android:supportsLocalInteraction="true" />
