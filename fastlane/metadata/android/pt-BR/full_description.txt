@@ -1,4 +1,4 @@
-O gptAssist é um embrulho WebView do ChatGPT. Ele bloqueia todas as URLs que não são essenciais para o funcionamento.
+O duckAssist é um embrulho WebView do ChatGPT. Ele bloqueia todas as URLs que não são essenciais para o funcionamento.
 Ele não suporta login por contas da Apple, Microsoft ou Google.
 Por favor use um navegador web para o registro inicial.
 

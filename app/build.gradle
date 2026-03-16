@@ -4,7 +4,7 @@ plugins {
 
 android {
     compileSdk 35
-    namespace 'org.woheller69.gptassist'
+    namespace 'org.diekaiju.duckassist'
     android.buildFeatures.buildConfig true
     defaultConfig {
         applicationId "org.diekaiju.duckassist"

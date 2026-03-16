@@ -1,4 +1,4 @@
-package org.woheller69.gptassist;
+package org.diekaiju.duckassist;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -27,6 +27,13 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+import android.content.ContentValues;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.webkit.JavascriptInterface;
+import java.io.OutputStream;
+import java.io.FileOutputStream;
+import java.io.File;
 
 import androidx.webkit.URLUtilCompat;
 
@@ -93,6 +100,27 @@ public class MainActivity extends Activity {
         chatWebView.setWebChromeClient(new MyWebChromeClient());
 
         chatWebView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+            if (url.startsWith("blob:")) {
+                chatWebView.evaluateJavascript(
+                        "(function() {" +
+                                "  var xhr = new XMLHttpRequest();" +
+                                "  xhr.open('GET', '" + url + "', true);" +
+                                "  xhr.responseType = 'blob';" +
+                                "  xhr.onload = function() {" +
+                                "    if (this.status == 200) {" +
+                                "      var blob = this.response;" +
+                                "      var reader = new FileReader();" +
+                                "      reader.readAsDataURL(blob);" +
+                                "      reader.onloadend = function() {" +
+                                "        var base64data = reader.result;" +
+                                "        Android.processBlob(base64data, '" + mimetype + "', '" + contentDisposition + "');" +
+                                "      }" +
+                                "    }" +
+                                "  };" +
+                                "  xhr.send();" +
+                                "})();", null);
+                return;
+            }
             Uri source = Uri.parse(url);
             DownloadManager.Request request = new DownloadManager.Request(source);
             request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url));
@@ -105,8 +133,50 @@ public class MainActivity extends Activity {
             if (dm != null) dm.enqueue(request);
         });
 
+        chatWebView.addJavascriptInterface(this, "Android");
         handleIntent(getIntent());
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
+    }
+
+    @JavascriptInterface
+    public void processBlob(String base64Data, String mimetype, String contentDisposition) {
+        if (base64Data.contains(",")) {
+            base64Data = base64Data.split(",")[1];
+        }
+
+        String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
+        if (filename == null || filename.isEmpty()) {
+            filename = URLUtilCompat.guessFileName(chatWebView.getUrl(), contentDisposition, mimetype);
+        }
+
+        final String finalFilename = filename;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+                values.put(MediaStore.MediaColumns.MIME_TYPE, mimetype);
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+                Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri != null) {
+                    try (OutputStream outputStream = getContentResolver().openOutputStream(uri)) {
+                        byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
+                        outputStream.write(data);
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
+                    }
+                }
+            } else {
+                File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                File file = new File(path, filename);
+                try (FileOutputStream os = new FileOutputStream(file)) {
+                    byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
+                    os.write(data);
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Blob download failed", e);
+        }
     }
 
     @Override

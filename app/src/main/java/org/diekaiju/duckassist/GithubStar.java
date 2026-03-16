@@ -1,4 +1,4 @@
-package org.woheller69.gptassist;
+package org.diekaiju.duckassist;
 
 import android.app.AlertDialog;
 import android.content.Context;

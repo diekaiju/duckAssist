@@ -13,7 +13,7 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
         <activity
-            android:name="org.woheller69.gptassist.MainActivity"
+            android:name="org.diekaiju.duckassist.MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:exported="true">
             <intent-filter>
