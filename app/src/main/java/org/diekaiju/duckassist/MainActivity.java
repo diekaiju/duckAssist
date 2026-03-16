@@ -51,6 +51,19 @@ public class MainActivity extends Activity {
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
     private String pendingTextToPaste = null;
+    private final String BLOB_JS = "(function() {" +
+            "    if (window.blobHandlerInjected) return;" +
+            "    window.blobHandlerInjected = true;" +
+            "    window.blobMap = window.blobMap || new Map();" +
+            "    const oC = URL.createObjectURL;" +
+            "    URL.createObjectURL = function(b) {" +
+            "        const u = oC.call(URL, b);" +
+            "        if (b instanceof Blob) window.blobMap.set(u, b);" +
+            "        console.log('Blob created: ' + u);" +
+            "        return u;" +
+            "    };" +
+            "    console.log('Blob Handler Patch Active');" +
+            "})();";
 
     private void clearCacheData() {
         if (chatWebView != null) {
@@ -101,24 +114,39 @@ public class MainActivity extends Activity {
 
         chatWebView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
             if (url.startsWith("blob:")) {
+                String escapedCD = contentDisposition != null ? contentDisposition.replace("'", "\\'") : "";
                 chatWebView.evaluateJavascript(
                         "(function() {" +
-                                "  var xhr = new XMLHttpRequest();" +
-                                "  xhr.open('GET', '" + url + "', true);" +
-                                "  xhr.responseType = 'blob';" +
-                                "  xhr.onload = function() {" +
-                                "    if (this.status == 200) {" +
-                                "      var blob = this.response;" +
-                                "      var reader = new FileReader();" +
-                                "      reader.readAsDataURL(blob);" +
-                                "      reader.onloadend = function() {" +
-                                "        var base64data = reader.result;" +
-                                "        Android.processBlob(base64data, '" + mimetype + "', '" + contentDisposition + "');" +
+                                "  var url = '" + url + "';" +
+                                "  var blob = window.blobMap ? window.blobMap.get(url) : null;" +
+                                "  console.log('Download request for: ' + url + ' (Map found: ' + (window.blobMap !== undefined) + ')');" +
+                                "  if (blob) {" +
+                                "    var reader = new FileReader();" +
+                                "    reader.onloadend = function() {" +
+                                "      Android.processBlob(reader.result, blob.type, '" + escapedCD + "', window.location.href);" +
+                                "    };" +
+                                "    reader.readAsDataURL(blob);" +
+                                "  } else {" +
+                                "    console.warn('Blob not found in map, trying XHR fallback...');" +
+                                "    var xhr = new XMLHttpRequest();" +
+                                "    xhr.open('GET', url, true);" +
+                                "    xhr.responseType = 'blob';" +
+                                "    xhr.onload = function() {" +
+                                "      if (this.status == 200) {" +
+                                "        var reader = new FileReader();" +
+                                "        reader.readAsDataURL(this.response);" +
+                                "        reader.onloadend = function() {" +
+                                "          Android.processBlob(reader.result, '" + mimetype + "', '" + escapedCD + "', window.location.href);" +
+                                "        };" +
                                 "      }" +
-                                "    }" +
-                                "  };" +
-                                "  xhr.send();" +
+                                "    };" +
+                                "    xhr.onerror = function() { console.error('Blob fetch failed: CSP or not found'); };" +
+                                "    xhr.send();" +
+                                "  }" +
                                 "})();", null);
+                return;
+            } else if (url.startsWith("data:")) {
+                processBlob(url, mimetype, contentDisposition, url);
                 return;
             }
             Uri source = Uri.parse(url);
@@ -139,14 +167,14 @@ public class MainActivity extends Activity {
     }
 
     @JavascriptInterface
-    public void processBlob(String base64Data, String mimetype, String contentDisposition) {
+    public void processBlob(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
         if (base64Data.contains(",")) {
             base64Data = base64Data.split(",")[1];
         }
 
         String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
         if (filename == null || filename.isEmpty()) {
-            filename = URLUtilCompat.guessFileName(chatWebView.getUrl(), contentDisposition, mimetype);
+            filename = URLUtilCompat.guessFileName(currentUrl, contentDisposition, mimetype);
         }
 
         final String finalFilename = filename;
@@ -255,12 +283,14 @@ public class MainActivity extends Activity {
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
             progressBar.setVisibility(View.VISIBLE);
+            view.evaluateJavascript(BLOB_JS, null);
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
             progressBar.setVisibility(View.GONE);
+            view.evaluateJavascript(BLOB_JS, null);
             if (pendingTextToPaste != null && !pendingTextToPaste.isEmpty()) {
                 final String textToPaste = pendingTextToPaste.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
                 view.evaluateJavascript(
@@ -273,6 +303,20 @@ public class MainActivity extends Activity {
     }
 
     private class MyWebChromeClient extends WebChromeClient {
+        @Override
+        public void onProgressChanged(WebView view, int newProgress) {
+            super.onProgressChanged(view, newProgress);
+            if (newProgress > 5) {
+                view.evaluateJavascript(BLOB_JS, null);
+            }
+        }
+
+        @Override
+        public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+            Log.d(TAG, "JS Console: " + consoleMessage.message() + " (Line " + consoleMessage.lineNumber() + ")");
+            return true;
+        }
+
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
             if (mUploadMessage != null) {
                 mUploadMessage.onReceiveValue(null);
