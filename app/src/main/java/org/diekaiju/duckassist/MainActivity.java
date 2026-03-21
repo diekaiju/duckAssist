@@ -72,23 +72,35 @@ public class MainActivity extends Activity {
     private final String VOICE_JS = "(function() {" +
             "  console.log('Voice Chat Trigger Started');" +
             "  function tryClick() {" +
-            "    var sidebarBtn = document.querySelector('button[aria-label*=\"sidebar\"], button[aria-label*=\"Sidebar\"]');" +
+            "    var sidebarPath = document.querySelector('path[d*=\"M9.41 10.125a.625.625 0 1 1 0 1.25H1.624\"]');" +
+            "    var sidebarBtn = sidebarPath ? sidebarPath.closest('button, [role=\"button\"]') : null;" +
+            "    if (!sidebarBtn) {" +
+            "        sidebarBtn = document.querySelector('button[aria-label*=\"sidebar\"], button[aria-label*=\"Sidebar\"]');" +
+            "    }" +
             "    if (sidebarBtn && sidebarBtn.offsetParent !== null) {" +
             "      console.log('Opening sidebar first...');" +
             "      sidebarBtn.click();" +
+            "    }" +
+            "    var allPaths = document.querySelectorAll('path[d*=\"M5.625 0c.345 0 .625.28\"]');" +
+            "    for (var i = 0; i < allPaths.length; i++) {" +
+            "        var btn = allPaths[i].closest('button, [role=\"button\"]');" +
+            "        if (btn) {" +
+            "            console.log('Voice Chat found by SVG icon!');" +
+            "            btn.click();" +
+            "            return true;" +
+            "        }" +
             "    }" +
             "    var elements = document.querySelectorAll('button, [role=\"button\"], div > span, a');" +
             "    for (var i = 0; i < elements.length; i++) {" +
             "      var text = (elements[i].innerText || elements[i].textContent || '').trim();" +
             "      if (text.toLowerCase().includes('voice chat')) {" +
-            "        console.log('Target found: ' + text);" +
+            "        console.log('Target found by text: ' + text);" +
             "        var clickTarget = elements[i];" +
             "        while (clickTarget && clickTarget.tagName !== 'BUTTON' && clickTarget.getAttribute('role') !== 'button' && clickTarget.tagName !== 'A') {" +
             "           clickTarget = clickTarget.parentElement;" +
             "        }" +
             "        if (!clickTarget) clickTarget = elements[i];" +
             "        clickTarget.click();" +
-            "        console.log('Voice Chat Clicked!');" +
             "        return true;" +
             "      }" +
             "    }" +
@@ -270,7 +282,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
-        clearCacheData();
+        //clearCacheData();
     }
 
     @Override
@@ -342,9 +354,16 @@ public class MainActivity extends Activity {
     private class MyWebViewClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            // If the user clicks any link, redirect it to the default browser
-            // We return true to signify we have handled the intent.
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            Uri uri = Uri.parse(url);
+            String host = uri.getHost();
+            
+            // Allow duck.ai and duckduckgo.com links to load inside the app
+            if (host != null && (host.endsWith("duck.ai") || host.endsWith("duckduckgo.com"))) {
+                return false;
+            }
+
+            // Redirect all other external links to the default browser
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
             startActivity(intent);
             return true;
         }
@@ -459,7 +478,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        clearCacheData();
+        //clearCacheData();
         if (chatWebView != null) {
             chatWebView.destroy();
         }
