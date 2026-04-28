@@ -10,8 +10,8 @@ android {
         applicationId "org.diekaiju.duckassist"
         minSdk 21
         targetSdk 35
-        versionCode 241
-        versionName "beta-2"
+        versionCode 242
+        versionName "0.2.1"
     }
 
     buildTypes {
