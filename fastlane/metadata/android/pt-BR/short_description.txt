@@ -1,1 +1,1 @@
-Embrulho WebView do ChatGPT
+WebView wrapper leve e focado em privacidade para Duck.ai

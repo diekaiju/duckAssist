@@ -12,7 +12,6 @@ Duck.ai is entirely private and secure. It requires no login, allowing you to in
 - 🎙️ **Digital Assistant Integration**: Set **duckAssist** as your device's default digital assistant app. Access your AI companion instantly via your system's assistant shortcut (long-press home, swipe from corner, etc.).
 - ⚡ **Auto-Voice Activation**: When launched via the assistant shortcut, the app automatically triggers the **"New Voice Chat"** feature, getting you into a conversation immediately.
 - 🚀 **"Ask duck.ai" Integration**: Select text in any application on your device and choose "Ask duck.ai" from the context menu. The app will automatically launch and paste your query directly into the chat.
-- 📑 **Multi-Window Support**: Every "Ask" trigger opens in a new Android task. This allows you to maintain multiple independent AI conversations and switch between them seamlessly via the Recents menu.
 - 🌐 **Smart Link Handling**: Navigation is optimized for the AI experience. All external links clicked within the app are automatically redirected to your system's default web browser, keeping your chat session secure and focused.
 - 🛡️ **Enhanced Privacy**:
     - **Session Persistence**: User data and cookies are preserved so you don't lose your settings.

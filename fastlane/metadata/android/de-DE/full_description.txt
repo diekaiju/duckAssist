@@ -1,6 +1,10 @@
-duckAssist ist ein WebView-Wrapper für ChatGPT. Die App blockiert alle URLs, die für die Funktion nicht essentiell sind.
-Login via Apple, Microsoft oder Google Konto werden nicht unterstützt.
-Bitte nutzen Sie für die Erstregistrierung einen Webbrowser.
+duckAssist ist ein schlanker, datenschutzfreundlicher Android-WebView-Wrapper, der speziell für Duck.ai (den privaten KI-Chat-Dienst von DuckDuckGo) entwickelt wurde. Er schließt die Lücke zwischen Web und Native, indem er fortschrittliche Integrationsfunktionen bietet und gleichzeitig die grundlegenden Datenschutzprinzipien von DuckDuckGo wahrt.
 
-Sie können die Blockierung ein-/ausschalten, indem Sie auf die Schaltfläche oben rechts klicken.
-Wischen Sie ein wenig nach oben, um die Schaltfläche auszublenden.
+Hauptmerkmale:
+- Fokussierte Benutzeroberfläche: Eine saubere, ablenkungsfreie Umgebung, die auf KI-Chats zugeschnitten ist, inklusive einer nativen Statusleiste.
+- Integration des digitalen Assistenten: Legen Sie duckAssist als Standard-Assistenten-App Ihres Geräts fest, um sofortigen Zugriff zu erhalten.
+- Automatische Sprachaktivierung: Das Starten über die Assistenten-Verknüpfung löst automatisch einen neuen Sprachchat aus.
+- „Ask duck.ai“-Integration: Wählen Sie Text in einer beliebigen Anwendung aus und wählen Sie „Ask duck.ai“ im Kontextmenü.
+- Intelligente Link-Handhabung: Externe Links werden automatisch in Ihrem Standard-Webbrowser geöffnet.
+- Verbesserter Datenschutz: Sitzungsdaten bleiben erhalten und der App-Cache wird beim Verlassen oder Schließen der App automatisch gelöscht.
+- Native Dateiunterstützung: Nahtloses Hochladen von Dokumenten und Herunterladen von Anhängen.

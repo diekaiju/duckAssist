@@ -1,6 +1,10 @@
-duckAssist, ChatGPT için basit bir WebView sarmalayıcıdır. Çalışması için gerekli olmayan tüm URL'leri engeller.
-Apple, Microsoft veya Google hesabı üzerinden giriş yapmayı desteklemez.
-Lütfen ilk kayıt için bir web tarayıcısı kullanın.
+duckAssist, Duck.ai (DuckDuckGo'nun özel yapay zeka sohbet hizmeti) için özel olarak tasarlanmış, hafif ve gizlilik odaklı bir Android WebView sarmalayıcısıdır. DuckDuckGo'nun temel gizlilik ilkelerini korurken gelişmiş entegrasyon özellikleri sunarak web ile yerel uygulama arasındaki boşluğu doldurur.
 
-Sağ üstteki butona tıklayarak engellemeyi açıp kapatabilirsiniz.
-Düğmeyi gizlemek için biraz yukarı kaydırın.
+Ana Özellikler:
+- Odaklanmış Arayüz: Yapay zeka sohbetleri için özel tasarlanmış, yerel yükleme ilerleme çubuğuna sahip temiz ve dikkat dağıtmayan bir ortam.
+- Dijital Asistan Entegrasyonu: Hızlı erişim için duckAssist'i cihazınızın varsayılan dijital asistan uygulaması olarak ayarlayın.
+- Otomatik Sesli Aktivasyon: Asistan kısayolu üzerinden başlatıldığında otomatik olarak yeni bir sesli sohbet başlatır.
+- "Ask duck.ai" Entegrasyonu: Herhangi bir uygulamada metin seçin ve içerik menüsünden "Ask duck.ai" seçeneğini belirleyin.
+- Akıllı Bağlantı Yönetimi: Harici bağlantılar otomatik olarak sisteminizin varsayılan tarayıcısında açılır.
+- Gelişmiş Gizlilik: Oturum kalıcılığı korunur ve uygulama kapatıldığında veya uygulamadan çıkıldığında önbellek otomatik olarak temizlenir.
+- Yerel Dosya Desteği: Belgeleri sorunsuz şekilde yükleyin ve ekleri doğrudan indirin.
