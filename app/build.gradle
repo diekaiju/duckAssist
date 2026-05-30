@@ -37,8 +37,9 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (signingConfigs.release.storeFile != null) {
-                signingConfig signingConfigs.release
+            def releaseSigning = signingConfigs.findByName('release')
+            if (releaseSigning != null && releaseSigning.storeFile != null) {
+                signingConfig releaseSigning
             }
         }
     }
