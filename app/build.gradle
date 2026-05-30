@@ -2,6 +2,9 @@ plugins {
     id 'com.android.application'
 }
 
+// Force JVM to use Unix line endings (LF) for service files and resources generated during the build
+System.setProperty("line.separator", "\n")
+
 android {
     compileSdk 35
     namespace 'org.diekaiju.duckassist'
