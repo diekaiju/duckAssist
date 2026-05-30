@@ -14,12 +14,41 @@ android {
         versionName "0.2.1"
     }
 
+    signingConfigs {
+        release {
+            // Load signing properties from local.properties
+            def localProperties = new Properties()
+            def localPropertiesFile = rootProject.file('local.properties')
+            if (localPropertiesFile.exists()) {
+                localPropertiesFile.withInputStream { localProperties.load(it) }
+            }
+
+            def storeFileProp = localProperties.getProperty('signing.storeFile')
+            if (storeFileProp != null) {
+                storeFile = file(storeFileProp)
+                storePassword = localProperties.getProperty('signing.storePassword')
+                keyAlias = localProperties.getProperty('signing.keyAlias')
+                keyPassword = localProperties.getProperty('signing.keyPassword')
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
+
+    dependenciesInfo {
+        // Disabling dependency metadata helps ensure byte-for-byte build reproducibility on F-Droid
+        includeInApk = false
+        includeInBundle = false
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11

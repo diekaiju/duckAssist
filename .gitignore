@@ -16,3 +16,7 @@ fdroiddata
 local.properties
 duck_ai_research.md
 
+# Keystores & Backups
+*.jks
+*.keystore
+/keystore_backup/
