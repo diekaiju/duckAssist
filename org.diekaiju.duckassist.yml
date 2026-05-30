@@ -1,32 +1,14 @@
 Categories:
   - Internet
-
 License: GPL-3.0-only
-
 AuthorName: diekaiju
-
 AutoName: DuckAssist
-
 SourceCode: https://github.com/diekaiju/duckAssist
 IssueTracker: https://github.com/diekaiju/duckAssist/issues
 
-Summary: Lightweight privacy-focused WebView wrapper for Duck.ai
-
-Description: |-
-    DuckAssist is an Android WebView-based client for Duck.ai (DuckDuckGo's AI chat service).
-
-    It provides a simplified interface for interacting with Duck.ai and integrates with Android system features such as assistant shortcuts and text sharing.
-
-    Features:
-    - Minimal interface optimized for AI chat usage
-    - Integration with Android assistant for quick access
-    - Ability to send selected text from other apps to Duck.ai
-    - Automatic handling of external links via the default browser
-    - File upload and download support
-
-    This app requires an active internet connection and relies on Duck.ai, an external service, to function.
 AntiFeatures:
-  - NonFreeNet
+  NonFreeNet:
+    en-US: Connects to Duck.ai servers.
 
 RepoType: git
 Repo: https://github.com/diekaiju/duckAssist.git
@@ -39,7 +21,7 @@ Builds:
     gradle:
       - yes
 
-AutoUpdateMode: Version %v
+AutoUpdateMode: Version
 UpdateCheckMode: Tags
 CurrentVersion: 0.2.1
 CurrentVersionCode: 242
