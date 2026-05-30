@@ -17,7 +17,7 @@ Binaries: https://github.com/diekaiju/duckAssist/releases/download/%v/app-releas
 Builds:
   - versionName: 0.2.1
     versionCode: 242
-    commit: f2630d680c021595aaacf8b8cc6bdf9c79d81e55
+    commit: b130dd172f32a2cdeeaedf7c6bfbea6cffbe05b1
     subdir: app
     gradle:
       - yes
