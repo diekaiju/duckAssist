@@ -53,7 +53,6 @@ public class MainActivity extends Activity {
     private final static int FILE_CHOOSER_REQUEST_CODE = 1;
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
-    private String pendingTextToPaste = null;
     private boolean pendingVoiceChat = false;
     private final String BLOB_JS = "(function() {" +
             "    if (window.blobHandlerInjected) return;" +
@@ -297,14 +296,33 @@ public class MainActivity extends Activity {
             return;
         String action = intent.getAction();
         String type = intent.getType();
+        Uri data = intent.getData();
+        Log.d(TAG, "handleIntent: action = " + action + ", type = " + type + ", data = " + (data != null ? data.toString() : "null"));
+        if (intent.getExtras() != null) {
+            for (String key : intent.getExtras().keySet()) {
+                Log.d(TAG, "  extra: " + key + " = " + intent.getExtras().get(key));
+            }
+        }
 
         if (Intent.ACTION_VIEW.equals(action)) {
-            Uri data = intent.getData();
+            data = intent.getData();
             if (data != null) {
                 String query = data.getQueryParameter("q");
                 if (query != null && !query.isEmpty()) {
-                    pendingTextToPaste = query;
-                    chatWebView.loadUrl("https://duck.ai/");
+                    try {
+                        org.json.JSONObject handoffObj = new org.json.JSONObject();
+                        handoffObj.put("aiChatPrompt", query);
+                        handoffObj.put("aiChatAutoPrompt", false);
+                        String handoffJson = handoffObj.toString();
+                        
+                        Uri.Builder builder = Uri.parse("https://duck.ai/chat").buildUpon()
+                                .appendQueryParameter("q", query)
+                                .appendQueryParameter("handoff", handoffJson);
+                        chatWebView.loadUrl(builder.build().toString());
+                    } catch (org.json.JSONException e) {
+                        Log.e(TAG, "Error building handoff JSON", e);
+                        chatWebView.loadUrl("https://duck.ai/chat?q=" + Uri.encode(query));
+                    }
                 } else {
                     chatWebView.loadUrl(data.toString());
                 }
@@ -322,15 +340,20 @@ public class MainActivity extends Activity {
             }
 
             if (sharedText != null) {
-                // Act as a bridge: open using a fresh VIEW intent to trigger a new window/task
-                Uri duckUri = Uri.parse("https://duck.ai/").buildUpon()
-                        .appendQueryParameter("q", sharedText)
-                        .build();
-                Intent viewIntent = new Intent(Intent.ACTION_VIEW, duckUri);
-                viewIntent.setPackage(getPackageName()); // Ensure it opens in our app
-                viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-                startActivity(viewIntent);
-                finish(); // Close the bridge instance
+                try {
+                    org.json.JSONObject handoffObj = new org.json.JSONObject();
+                    handoffObj.put("aiChatPrompt", sharedText);
+                    handoffObj.put("aiChatAutoPrompt", false);
+                    String handoffJson = handoffObj.toString();
+                    
+                    Uri.Builder builder = Uri.parse("https://duck.ai/chat").buildUpon()
+                            .appendQueryParameter("q", sharedText)
+                            .appendQueryParameter("handoff", handoffJson);
+                    chatWebView.loadUrl(builder.build().toString());
+                } catch (org.json.JSONException e) {
+                    Log.e(TAG, "Error building handoff JSON", e);
+                    chatWebView.loadUrl("https://duck.ai/chat?q=" + Uri.encode(sharedText));
+                }
             } else {
                 chatWebView.loadUrl("https://duck.ai/");
             }
@@ -380,16 +403,6 @@ public class MainActivity extends Activity {
             super.onPageFinished(view, url);
             progressBar.setVisibility(View.GONE);
             view.evaluateJavascript(BLOB_JS, null);
-            if (pendingTextToPaste != null && !pendingTextToPaste.isEmpty()) {
-                final String textToPaste = pendingTextToPaste.replace("\\", "\\\\").replace("\"", "\\\"")
-                        .replace("\n", "\\n").replace("\r", "\\r");
-                view.evaluateJavascript(
-                        "setTimeout(function() {" +
-                                "  document.execCommand('insertText', false, \"" + textToPaste + "\");" +
-                                "}, 1000);",
-                        null);
-                pendingTextToPaste = null;
-            }
             if (pendingVoiceChat) {
                 view.evaluateJavascript(
                         "setTimeout(function() {" +
