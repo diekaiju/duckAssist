@@ -53,3 +53,6 @@ The app uses:
 ## Contributing
 
 If you encounter any issues or have suggestions for improvements, please open an issue in the repository. Pull requests are always welcome.
+
+## Buy me a coffee
+if you want to Buy me a coffee : [buymeacoffee](upi://pay?pa=siddiqmohd2772@okaxis&cu=INR)
