@@ -1,0 +1,1 @@
+Pinch to zoom overrides to font size resizing, persistent zoom preference, and downloads saved to a custom duck.ai subfolder with notifications.
