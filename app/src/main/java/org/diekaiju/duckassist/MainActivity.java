@@ -38,6 +38,14 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.webkit.PermissionRequest;
 
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.SharedPreferences;
+
 import androidx.webkit.URLUtilCompat;
 
 import org.woheller69.freeDroidWarn.FreeDroidWarn;
@@ -54,6 +62,20 @@ public class MainActivity extends Activity {
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
     private boolean pendingVoiceChat = false;
+
+    private String pendingDownloadUrl;
+    private String pendingDownloadUserAgent;
+    private String pendingDownloadContentDisposition;
+    private String pendingDownloadMimetype;
+    private long pendingDownloadContentLength;
+
+    private boolean isPendingBlob = false;
+    private String pendingBlobData;
+    private String pendingBlobMimetype;
+    private String pendingBlobContentDisposition;
+    private String pendingBlobCurrentUrl;
+
+    private static final int DOWNLOAD_PERMISSION_REQUEST_CODE = 456;
     private final String BLOB_JS = "(function() {" +
             "    if (window.blobHandlerInjected) return;" +
             "    window.blobHandlerInjected = true;" +
@@ -148,8 +170,8 @@ public class MainActivity extends Activity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setLoadWithOverviewMode(true);
         webSettings.setUseWideViewPort(true);
-        webSettings.setSupportZoom(true);
-        webSettings.setBuiltInZoomControls(true);
+        webSettings.setSupportZoom(false);
+        webSettings.setBuiltInZoomControls(false);
         webSettings.setDisplayZoomControls(false);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
@@ -161,6 +183,10 @@ public class MainActivity extends Activity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setSaveFormData(false);
         webSettings.setGeolocationEnabled(false);
+
+        SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+        int savedZoom = prefs.getInt("text_zoom", 100);
+        webSettings.setTextZoom(savedZoom);
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
@@ -211,21 +237,44 @@ public class MainActivity extends Activity {
                 processBlob(url, mimetype, contentDisposition, url);
                 return;
             }
-            Uri source = Uri.parse(url);
-            DownloadManager.Request request = new DownloadManager.Request(source);
-            request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url));
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
-            if (filename == null)
-                filename = URLUtilCompat.guessFileName(url, contentDisposition, mimetype);
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
-            Toast.makeText(this, getString(R.string.download) + " " + filename, Toast.LENGTH_SHORT).show();
-            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-            if (dm != null)
-                dm.enqueue(request);
+            if (checkDownloadPermissions()) {
+                startStandardDownload(url, userAgent, contentDisposition, mimetype, contentLength);
+            } else {
+                pendingDownloadUrl = url;
+                pendingDownloadUserAgent = userAgent;
+                pendingDownloadContentDisposition = contentDisposition;
+                pendingDownloadMimetype = mimetype;
+                pendingDownloadContentLength = contentLength;
+                isPendingBlob = false;
+            }
         });
 
         chatWebView.addJavascriptInterface(this, "Android");
+
+        ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                float scale = detector.getScaleFactor();
+                int currentZoom = chatWebView.getSettings().getTextZoom();
+                int newZoom = (int) (currentZoom * scale);
+                // Clamp text zoom between 50% and 300%
+                newZoom = Math.max(50, Math.min(newZoom, 300));
+                chatWebView.getSettings().setTextZoom(newZoom);
+                
+                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                prefs.edit().putInt("text_zoom", newZoom).apply();
+                return true;
+            }
+        });
+
+        chatWebView.setOnTouchListener(new View.OnTouchListener() {
+            @SuppressLint("ClickableViewAccessibility")
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                scaleGestureDetector.onTouchEvent(event);
+                return false;
+            }
+        });
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, 123);
@@ -237,6 +286,18 @@ public class MainActivity extends Activity {
 
     @JavascriptInterface
     public void processBlob(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
+        if (checkDownloadPermissions()) {
+            saveBlobToFile(base64Data, mimetype, contentDisposition, currentUrl);
+        } else {
+            isPendingBlob = true;
+            pendingBlobData = base64Data;
+            pendingBlobMimetype = mimetype;
+            pendingBlobContentDisposition = contentDisposition;
+            pendingBlobCurrentUrl = currentUrl;
+        }
+    }
+
+    private void saveBlobToFile(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
         if (base64Data.contains(",")) {
             base64Data = base64Data.split(",")[1];
         }
@@ -248,34 +309,152 @@ public class MainActivity extends Activity {
 
         final String finalFilename = filename;
         try {
+            Uri fileUri = null;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
                 values.put(MediaStore.MediaColumns.MIME_TYPE, mimetype);
-                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + File.separator + "duck.ai");
 
                 Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                 if (uri != null) {
                     try (OutputStream outputStream = getContentResolver().openOutputStream(uri)) {
                         byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
                         outputStream.write(data);
-                        runOnUiThread(() -> Toast.makeText(MainActivity.this,
-                                getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
+                        fileUri = uri;
                     }
                 }
             } else {
-                File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                File path = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "duck.ai");
+                if (!path.exists()) {
+                    path.mkdirs();
+                }
                 File file = new File(path, filename);
                 try (FileOutputStream os = new FileOutputStream(file)) {
                     byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
                     os.write(data);
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
-                            getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show());
+                    fileUri = Uri.fromFile(file);
                 }
+            }
+
+            if (fileUri != null) {
+                final Uri finalUri = fileUri;
+                runOnUiThread(() -> {
+                    Toast.makeText(MainActivity.this, getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show();
+                    showDownloadNotification(finalFilename, mimetype, finalUri);
+                });
             }
         } catch (Exception e) {
             Log.e(TAG, "Blob download failed", e);
         }
+    }
+
+    private void startStandardDownload(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+        Uri source = Uri.parse(url);
+        DownloadManager.Request request = new DownloadManager.Request(source);
+        request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url));
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
+        if (filename == null)
+            filename = URLUtilCompat.guessFileName(url, contentDisposition, mimetype);
+        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "duck.ai" + File.separator + filename);
+        Toast.makeText(this, getString(R.string.download) + " " + filename, Toast.LENGTH_SHORT).show();
+        DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        if (dm != null)
+            dm.enqueue(request);
+    }
+
+    private boolean checkDownloadPermissions() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, DOWNLOAD_PERMISSION_REQUEST_CODE);
+                return false;
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, DOWNLOAD_PERMISSION_REQUEST_CODE);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void showDownloadNotification(String filename, String mimeType, Uri uri) {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        String channelId = "duck_downloads";
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(channelId, "Downloads", NotificationManager.IMPORTANCE_DEFAULT);
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, mimeType != null ? mimeType : "*/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, flags);
+
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(this, channelId);
+        } else {
+            builder = new Notification.Builder(this);
+        }
+
+        builder.setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle(filename)
+                .setContentText("Download completed")
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true);
+
+        if (notificationManager != null) {
+            notificationManager.notify((int) System.currentTimeMillis(), builder.build());
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == DOWNLOAD_PERMISSION_REQUEST_CODE) {
+            boolean writeGranted = true;
+            for (int i = 0; i < permissions.length; i++) {
+                if (Manifest.permission.WRITE_EXTERNAL_STORAGE.equals(permissions[i])) {
+                    writeGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED;
+                }
+            }
+            if (writeGranted) {
+                if (isPendingBlob) {
+                    if (pendingBlobData != null) {
+                        saveBlobToFile(pendingBlobData, pendingBlobMimetype, pendingBlobContentDisposition, pendingBlobCurrentUrl);
+                    }
+                } else {
+                    if (pendingDownloadUrl != null) {
+                        startStandardDownload(pendingDownloadUrl, pendingDownloadUserAgent, pendingDownloadContentDisposition, pendingDownloadMimetype, pendingDownloadContentLength);
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Permission denied. Cannot download file.", Toast.LENGTH_SHORT).show();
+            }
+            clearPendingDownload();
+        }
+    }
+
+    private void clearPendingDownload() {
+        pendingDownloadUrl = null;
+        pendingDownloadUserAgent = null;
+        pendingDownloadContentDisposition = null;
+        pendingDownloadMimetype = null;
+        pendingDownloadContentLength = 0;
+        isPendingBlob = false;
+        pendingBlobData = null;
+        pendingBlobMimetype = null;
+        pendingBlobContentDisposition = null;
+        pendingBlobCurrentUrl = null;
     }
 
     @Override
