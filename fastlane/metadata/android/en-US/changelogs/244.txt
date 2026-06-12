@@ -1,1 +1,1 @@
-Pinch to zoom overrides to font size resizing, persistent zoom preference, and downloads saved to a custom duck.ai subfolder with notifications.
+Pinch to zoom text scaling (50%-300%) with preference persistence. Custom downloads folder (/Downloads/duck.ai), smart permission requests, and download completed notifications. Universal download fixes for Android 5.0 to 9.0 compatibility.

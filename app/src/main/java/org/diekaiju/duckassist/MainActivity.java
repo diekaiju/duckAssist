@@ -45,6 +45,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.SharedPreferences;
+import android.media.MediaScannerConnection;
+import android.os.StrictMode;
 
 import androidx.webkit.URLUtilCompat;
 
@@ -154,6 +156,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        StrictMode.VmPolicy.Builder StrictBuilder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(StrictBuilder.build());
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             setTheme(android.R.style.Theme_DeviceDefault_DayNight);
         }
@@ -335,6 +340,8 @@ public class MainActivity extends Activity {
                     os.write(data);
                     fileUri = Uri.fromFile(file);
                 }
+                // Force media scanner to scan the file so it shows in downloads library
+                MediaScannerConnection.scanFile(this, new String[]{file.getAbsolutePath()}, new String[]{mimetype}, null);
             }
 
             if (fileUri != null) {
