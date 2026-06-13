@@ -31,7 +31,7 @@ Builds:
 
   - versionName: 0.3.1
     versionCode: 244
-    commit: 7961ad211b13ee60c810c9f957cb33241b79594a
+    commit: b69476bc95846b3f34078a0d1e97607ebab218ea
     subdir: app
     gradle:
       - yes
