@@ -8,3 +8,5 @@ Ana Özellikler:
 - Akıllı Bağlantı Yönetimi: Harici bağlantılar otomatik olarak sisteminizin varsayılan tarayıcısında açılır.
 - Gelişmiş Gizlilik: Oturum kalıcılığı korunur ve uygulama kapatıldığında veya uygulamadan çıkıldığında önbellek otomatik olarak temizlenir.
 - Yerel Dosya Desteği: Belgeleri sorunsuz şekilde yükleyin ve ekleri doğrudan indirin.
+- Alt Çekmece (Drawer) Arayüzü: Arka plandaki uygulama bağlamınızı kaybetmeden yapay zeka ile etkileşime girmek için asistan kısayollarını kullanırken veya içerik paylaşırken kullanışlı bir alt çekmeceyi yukarı kaydırın.
+- Özelleştirilebilir İpuçları ve Arayüz Ayarları: Özel tasarımlı bir HTML ayarlar sayfası aracılığıyla alt çekmece paneli davranışını, asistan ses seçeneklerini ve metin ile belge paylaşımı için varsayılan ipucu son eklerini yapılandırın.

@@ -1,0 +1,1 @@
+Çekmece düzeni ve ses düğmelerine sahip HTML tabanlı Ayarlar arayüzü. 'Ask duck.ai' ve 'Shared Document AI' için ayrı ayrı yapılandırılabilen ipucu son ekleri. Dosya paylaşımı için son derece görünür, aşağı kayan uyarı başlığı.

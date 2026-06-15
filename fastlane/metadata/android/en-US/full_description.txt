@@ -8,3 +8,5 @@ Key Features:
 - Smart Link Handling: External links open automatically in your system's default browser.
 - Enhanced Privacy: Session persistence is preserved, and the application cache is automatically purged when leaving/closing the app.
 - Native File Support: Seamlessly upload documents and download attachments.
+- Bottom Drawer Interface: Slide up a convenient bottom sheet drawer when using assistant shortcuts or sharing content to interact with the AI without losing your background app context.
+- Customizable Prompts & UI Settings: Configure bottom drawer panel behavior, assistant voice options, and default prompt suffixes for text and document sharing via a custom-styled HTML settings page.

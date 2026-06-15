@@ -15,7 +15,7 @@ fdroiddata
 .cxx
 local.properties
 duck_ai_research.md
-
+/wsl-fdroid
 # Keystores & Backups
 *.jks
 *.keystore

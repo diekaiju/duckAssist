@@ -27,6 +27,22 @@ public class AskActivity extends Activity {
         if (intent == null) return;
         String action = intent.getAction();
         String type = intent.getType();
+
+        if (Intent.ACTION_SEND.equals(action) && type != null) {
+            if (type.startsWith("image/") || "application/pdf".equals(type)) {
+                Uri streamUri = (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (streamUri != null) {
+                    Intent chatIntent = new Intent(this, ChatActivity.class);
+                    chatIntent.setAction(Intent.ACTION_SEND);
+                    chatIntent.setType(type);
+                    chatIntent.putExtra(Intent.EXTRA_STREAM, streamUri);
+                    chatIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(chatIntent);
+                    return;
+                }
+            }
+        }
+
         String sharedText = null;
 
         if (Intent.ACTION_SEND.equals(action) && "text/plain".equals(type)) {
@@ -39,6 +55,11 @@ public class AskActivity extends Activity {
         }
 
         if (sharedText != null) {
+            android.content.SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            String suffix = prefs.getString("ask_duck_suffix", "");
+            if (suffix != null && !suffix.trim().isEmpty()) {
+                sharedText = sharedText + "\n\n" + suffix;
+            }
             try {
                 org.json.JSONObject handoffObj = new org.json.JSONObject();
                 handoffObj.put("aiChatPrompt", sharedText);

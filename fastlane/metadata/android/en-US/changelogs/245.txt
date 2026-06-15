@@ -1,0 +1,1 @@
+HTML-based Settings interface with drawer layout & voice toggles. Separately configurable prompt suffixes for 'Ask duck.ai' and 'Shared Document AI'. Highly visible slide-down attention banner for file sharing.

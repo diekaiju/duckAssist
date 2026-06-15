@@ -1,0 +1,1 @@
+Interface de configurações em HTML com layout de gaveta e opções de voz. Sufixos de prompt configuráveis separadamente para 'Ask duck.ai' e 'Shared Document AI'. Banner de atenção deslizante altamente visível para compartilhamento de arquivos.

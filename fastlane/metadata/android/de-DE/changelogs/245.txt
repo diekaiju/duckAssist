@@ -1,0 +1,1 @@
+HTML-basierte Einstellungsseite mit Drawer-Layout & Sprach-Toggles. Separat konfigurierbare Prompt-Suffixe für 'Ask duck.ai' und 'Shared Document AI'. Gut sichtbares, nach unten rutschendes Aufmerksamkeitsbanner zum Teilen von Dateien.

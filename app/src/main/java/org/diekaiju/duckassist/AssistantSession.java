@@ -24,7 +24,7 @@ public class AssistantSession extends VoiceInteractionSession {
     public void onShow(Bundle args, int showFlags) {
         super.onShow(args, showFlags);
         
-        Intent intent = new Intent(getContext(), MainActivity.class);
+        Intent intent = new Intent(getContext(), ChatActivity.class);
         intent.setAction(Intent.ACTION_ASSIST);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         

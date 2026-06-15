@@ -40,5 +40,5 @@ AllowedAPKSigningKeys: 5ef69bd656d41b55a7582541b7e79c5117e6ee6be0cf076aa582e428c
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^[0-9.]+$
-CurrentVersion: 0.3.1
-CurrentVersionCode: 244
+CurrentVersion: 0.4.0
+CurrentVersionCode: 245

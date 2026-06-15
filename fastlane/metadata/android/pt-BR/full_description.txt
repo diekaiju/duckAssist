@@ -8,3 +8,5 @@ Recursos principais:
 - Manipulação inteligente de links: Links externos são abertos automaticamente no navegador padrão do seu sistema.
 - Privacidade aprimorada: A persistência da sessão é preservada e o cache do aplicativo é limpo ao sair ou fechar o app.
 - Suporte a arquivos nativos: Envie documentos e baixe anexos perfeitamente.
+- Interface de gaveta inferior (Drawer): Deslize para cima uma gaveta conveniente (bottom sheet) ao usar atalhos do assistente ou compartilhar conteúdo para interagir com a IA sem perder o contexto do aplicativo em segundo plano.
+- Configurações personalizáveis de Prompts e UI: Configure o comportamento do painel da gaveta inferior, opções de voz do assistente e sufixos de prompt padrão para compartilhamento de texto e documentos por meio de uma página de configurações HTML com estilo personalizado.

@@ -6,6 +6,12 @@
 
 Duck.ai is entirely private and secure. It requires no login, allowing you to interact with multiple AI models (GPT-4o, Claude 3, Llama 3, etc.) without compromising your personal identity.
 
+## Downloads
+
+You can download **duckAssist** from:
+- [F-Droid](https://f-droid.org/packages/org.diekaiju.duckassist/)
+- [GitHub Releases](https://github.com/diekaiju/duckAssist/releases)
+
 ## Key Features
 
 - 🎯 **Focused Interface**: A clean, distraction-free environment tailored for AI chat, complete with a native progress bar for page loading feedback.
@@ -18,6 +24,8 @@ Duck.ai is entirely private and secure. It requires no login, allowing you to in
     - **Automated Cache Management**: The application cache is purged whenever you leave or close the app to protect your privacy and save device storage.
 - 📁 **Native File Support**: Seamlessly upload documents for AI analysis and download attachments directly to your device's Downloads folder.
 - 🎨 **Custom Identity**: Features a premium new duck-themed visual identity and icon.
+- ⚙️ **HTML Settings & Custom Prompts**: Configure bottom drawer panel behavior, assistant voice options, and default prompt suffixes for text ("Ask duck.ai") and document sharing separately via a custom-styled HTML settings page.
+- 🚨 **High-Visibility Banner Alert**: Integrated a custom, animated red banner overlay instructing you how to attach shared files instead of low-visibility system toasts.
 
 ## Usage
 
@@ -41,6 +49,11 @@ Simply click on any link or citation provided by the AI. The app will instantly 
   <img src="screenshot/image (1).jpg" width="30%" />
   <img src="screenshot/image (2).jpg" width="30%" />
   <img src="screenshot/image (3).jpg" width="30%" />
+</p>
+<p align="center">
+  <img src="screenshot/image (4).jpg" width="30%" />
+  <img src="screenshot/image (5).jpeg" width="30%" />
+  <img src="screenshot/image (1).png" width="30%" />
 </p>
 
 ## License

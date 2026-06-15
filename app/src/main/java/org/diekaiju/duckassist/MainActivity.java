@@ -35,6 +35,11 @@ import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.io.File;
 import android.Manifest;
+import android.graphics.pdf.PdfRenderer;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.os.ParcelFileDescriptor;
+import java.io.InputStream;
 import android.content.pm.PackageManager;
 import android.webkit.PermissionRequest;
 
@@ -64,6 +69,7 @@ public class MainActivity extends Activity {
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
     private boolean pendingVoiceChat = false;
+    private Uri pendingSharedFileUri = null;
 
     private String pendingDownloadUrl;
     private String pendingDownloadUserAgent;
@@ -147,6 +153,44 @@ public class MainActivity extends Activity {
             "  }" +
             "})();";
 
+    private final String SETTINGS_INJECT_JS = "(function() {" +
+            "    if (window.duckAssistSettingsButtonInjected) return;" +
+            "    function injectButton() {" +
+            "        var webSettingsPath = document.querySelector('path[d^=\"M5.647 14.153\"]');" +
+            "        var webSettingsBtn = webSettingsPath ? webSettingsPath.closest('button, [role=\"button\"]') : null;" +
+            "        if (webSettingsBtn && !document.querySelector('.duckassist-native-settings-btn')) {" +
+            "            console.log('Found web settings button, injecting our button beside it');" +
+            "            var ourBtn = webSettingsBtn.cloneNode(true);" +
+            "            ourBtn.classList.add('duckassist-native-settings-btn');" +
+            "            var svg = ourBtn.querySelector('svg');" +
+            "            if (svg) {" +
+            "                svg.innerHTML = '<path fill=\"currentColor\" d=\"M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.3C.5 6.7.9 9.8 2.9 11.8c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.1z\"/>';" +
+            "            }" +
+            "            ourBtn.style.marginLeft = '8px';" +
+            "            ourBtn.style.marginRight = '8px';" +
+            "            ourBtn.addEventListener('click', function(e) {" +
+            "                e.stopPropagation();" +
+            "                e.preventDefault();" +
+            "                if (typeof Android !== 'undefined' && Android.showSettingsDialog) {" +
+            "                    Android.showSettingsDialog();" +
+            "                }" +
+            "            });" +
+            "            webSettingsBtn.parentNode.insertBefore(ourBtn, webSettingsBtn.nextSibling);" +
+            "            window.duckAssistSettingsButtonInjected = true;" +
+            "            return true;" +
+            "        }" +
+            "        return false;" +
+            "    }" +
+            "    if (!injectButton()) {" +
+            "        var observer = new MutationObserver(function(mutations) {" +
+            "            if (injectButton()) {" +
+            "                observer.disconnect();" +
+            "            }" +
+            "        });" +
+            "        observer.observe(document.body, { childList: true, subtree: true });" +
+            "    }" +
+            "})();";
+
     private void clearCacheData() {
         if (chatWebView != null) {
             chatWebView.clearCache(true);
@@ -154,18 +198,47 @@ public class MainActivity extends Activity {
         Log.d(TAG, "Cache cleared.");
     }
 
+    private Uri saveUriToTempFile(Uri uri, String extension) {
+        try {
+            InputStream is = getContentResolver().openInputStream(uri);
+            if (is == null) return null;
+            File tempFile = new File(getCacheDir(), "shared_file_" + System.currentTimeMillis() + extension);
+            FileOutputStream fos = new FileOutputStream(tempFile);
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                fos.write(buffer, 0, read);
+            }
+            fos.flush();
+            fos.close();
+            is.close();
+            return Uri.fromFile(tempFile);
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving shared file to temp file", e);
+            return null;
+        }
+    }
+
+    protected void setActivityTheme() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            setTheme(android.R.style.Theme_DeviceDefault_DayNight);
+        }
+    }
+
+    protected int getLayoutResourceId() {
+        return R.layout.activity_main;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         StrictMode.VmPolicy.Builder StrictBuilder = new StrictMode.VmPolicy.Builder();
         StrictMode.setVmPolicy(StrictBuilder.build());
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            setTheme(android.R.style.Theme_DeviceDefault_DayNight);
-        }
+        setActivityTheme();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(getLayoutResourceId());
 
         progressBar = findViewById(R.id.progressBar);
         chatWebView = findViewById(R.id.chatWebView);
@@ -285,6 +358,7 @@ public class MainActivity extends Activity {
                 requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, 123);
             }
         }
+
         handleIntent(getIntent());
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
     }
@@ -300,6 +374,74 @@ public class MainActivity extends Activity {
             pendingBlobContentDisposition = contentDisposition;
             pendingBlobCurrentUrl = currentUrl;
         }
+    }
+
+    @JavascriptInterface
+    public void showSettingsDialog() {
+        runOnUiThread(() -> {
+            android.app.Dialog dialog = new android.app.Dialog(MainActivity.this);
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            
+            WebView webView = new WebView(MainActivity.this);
+            WebSettings ws = webView.getSettings();
+            ws.setJavaScriptEnabled(true);
+            ws.setDomStorageEnabled(true);
+            
+            webView.addJavascriptInterface(new Object() {
+                @JavascriptInterface
+                public String getSettingsJson() {
+                    SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                    org.json.JSONObject obj = new org.json.JSONObject();
+                    try {
+                        obj.put("use_drawer_assistant", prefs.getBoolean("use_drawer_assistant", true));
+                        obj.put("use_drawer_shared", prefs.getBoolean("use_drawer_shared", true));
+                        obj.put("trigger_voice_assistant", prefs.getBoolean("trigger_voice_assistant", true));
+                        obj.put("ask_duck_suffix", prefs.getString("ask_duck_suffix", ""));
+                        obj.put("shared_doc_suffix", prefs.getString("shared_doc_suffix", ""));
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error generating settings JSON", e);
+                    }
+                    return obj.toString();
+                }
+
+                @JavascriptInterface
+                public void saveSettings(String jsonStr) {
+                    try {
+                        org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+                        SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                        prefs.edit()
+                             .putBoolean("use_drawer_assistant", obj.getBoolean("use_drawer_assistant"))
+                             .putBoolean("use_drawer_shared", obj.getBoolean("use_drawer_shared"))
+                             .putBoolean("trigger_voice_assistant", obj.getBoolean("trigger_voice_assistant"))
+                             .putString("ask_duck_suffix", obj.getString("ask_duck_suffix"))
+                             .putString("shared_doc_suffix", obj.getString("shared_doc_suffix"))
+                             .apply();
+                        runOnUiThread(() -> {
+                            dialog.dismiss();
+                            Toast.makeText(MainActivity.this, "Settings saved successfully", Toast.LENGTH_SHORT).show();
+                        });
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error saving settings", e);
+                    }
+                }
+
+                @JavascriptInterface
+                public void dismissSettings() {
+                    runOnUiThread(() -> dialog.dismiss());
+                }
+            }, "AndroidSettings");
+
+            webView.loadUrl("file:///android_asset/settings.html");
+            
+            dialog.setContentView(webView);
+            dialog.show();
+            
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+                window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            }
+        });
     }
 
     private void saveBlobToFile(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
@@ -464,6 +606,70 @@ public class MainActivity extends Activity {
         pendingBlobCurrentUrl = null;
     }
 
+    private void showCustomBanner(String message) {
+        runOnUiThread(() -> {
+            View root = findViewById(android.R.id.content);
+            if (root instanceof android.view.ViewGroup) {
+                android.view.ViewGroup viewGroup = (android.view.ViewGroup) root;
+                
+                View oldBanner = viewGroup.findViewWithTag("attention_banner");
+                if (oldBanner != null) {
+                    viewGroup.removeView(oldBanner);
+                }
+                
+                android.widget.LinearLayout bannerCard = new android.widget.LinearLayout(this);
+                bannerCard.setTag("attention_banner");
+                bannerCard.setOrientation(android.widget.LinearLayout.VERTICAL);
+                
+                android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+                shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+                shape.setColor(Color.parseColor("#d32f2f"));
+                shape.setCornerRadius(12 * getResources().getDisplayMetrics().density);
+                bannerCard.setBackground(shape);
+                
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    bannerCard.setElevation(16 * getResources().getDisplayMetrics().density);
+                }
+                
+                android.widget.TextView textView = new android.widget.TextView(this);
+                textView.setText(message);
+                textView.setTextColor(Color.WHITE);
+                textView.setTextSize(16);
+                textView.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
+                int padding = (int) (16 * getResources().getDisplayMetrics().density);
+                textView.setPadding(padding, padding, padding, padding);
+                textView.setGravity(android.view.Gravity.CENTER);
+                
+                bannerCard.addView(textView);
+                
+                android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                        android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+                );
+                int margin = (int) (16 * getResources().getDisplayMetrics().density);
+                lp.setMargins(margin, margin + (int)(24 * getResources().getDisplayMetrics().density), margin, margin);
+                lp.gravity = android.view.Gravity.TOP;
+                
+                bannerCard.setTranslationY(-300);
+                viewGroup.addView(bannerCard, lp);
+                
+                bannerCard.animate()
+                        .translationY(0)
+                        .setDuration(400)
+                        .setInterpolator(new android.view.animation.OvershootInterpolator())
+                        .start();
+                
+                bannerCard.postDelayed(() -> {
+                    bannerCard.animate()
+                            .translationY(-400)
+                            .setDuration(300)
+                            .withEndAction(() -> viewGroup.removeView(bannerCard))
+                            .start();
+                }, 6000);
+            }
+        });
+    }
+
     @Override
     protected void onStop() {
         super.onStop();
@@ -517,7 +723,19 @@ public class MainActivity extends Activity {
             }
         } else if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
             String sharedText = null;
-            if (Intent.ACTION_SEND.equals(action) && "text/plain".equals(type)) {
+            if (type != null && (type.startsWith("image/") || "application/pdf".equals(type))) {
+                Uri streamUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (streamUri != null) {
+                    if (type.startsWith("image/")) {
+                        String ext = ".jpg";
+                        if (type.contains("png")) ext = ".png";
+                        else if (type.contains("webp")) ext = ".webp";
+                        pendingSharedFileUri = saveUriToTempFile(streamUri, ext);
+                    } else if ("application/pdf".equals(type)) {
+                        pendingSharedFileUri = saveUriToTempFile(streamUri, ".pdf");
+                    }
+                }
+            } else if (Intent.ACTION_SEND.equals(action) && "text/plain".equals(type)) {
                 sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
             } else if (Intent.ACTION_PROCESS_TEXT.equals(action)) {
                 CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
@@ -525,7 +743,34 @@ public class MainActivity extends Activity {
                     sharedText = text.toString();
             }
 
-            if (sharedText != null) {
+            if (pendingSharedFileUri != null) {
+                showCustomBanner("Tap 📎 to attach the shared file");
+                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                String docSuffix = prefs.getString("shared_doc_suffix", "");
+                if (docSuffix != null && !docSuffix.trim().isEmpty()) {
+                    try {
+                        org.json.JSONObject handoffObj = new org.json.JSONObject();
+                        handoffObj.put("aiChatPrompt", docSuffix);
+                        handoffObj.put("aiChatAutoPrompt", false);
+                        String handoffJson = handoffObj.toString();
+                        
+                        Uri.Builder builder = Uri.parse("https://duck.ai/chat").buildUpon()
+                                .appendQueryParameter("q", docSuffix)
+                                .appendQueryParameter("handoff", handoffJson);
+                        chatWebView.loadUrl(builder.build().toString());
+                    } catch (org.json.JSONException e) {
+                        Log.e(TAG, "Error building handoff JSON", e);
+                        chatWebView.loadUrl("https://duck.ai/chat?q=" + Uri.encode(docSuffix));
+                    }
+                } else {
+                    chatWebView.loadUrl("https://duck.ai/chat");
+                }
+            } else if (sharedText != null) {
+                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                String suffix = prefs.getString("ask_duck_suffix", "");
+                if (suffix != null && !suffix.trim().isEmpty()) {
+                    sharedText = sharedText + "\n\n" + suffix;
+                }
                 try {
                     org.json.JSONObject handoffObj = new org.json.JSONObject();
                     handoffObj.put("aiChatPrompt", sharedText);
@@ -545,12 +790,21 @@ public class MainActivity extends Activity {
             }
         } else if (Intent.ACTION_ASSIST.equals(action)) {
             Log.d(TAG, "Assistance shortcut triggered");
-            String currentUrl = chatWebView.getUrl();
-            if (currentUrl != null && currentUrl.startsWith("https://duck.ai")) {
-                chatWebView.evaluateJavascript(VOICE_JS, null);
+            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            boolean triggerVoice = prefs.getBoolean("trigger_voice_assistant", true);
+            if (triggerVoice) {
+                String currentUrl = chatWebView.getUrl();
+                if (currentUrl != null && currentUrl.startsWith("https://duck.ai")) {
+                    chatWebView.evaluateJavascript(VOICE_JS, null);
+                } else {
+                    pendingVoiceChat = true;
+                    chatWebView.loadUrl("https://duck.ai/");
+                }
             } else {
-                pendingVoiceChat = true;
-                chatWebView.loadUrl("https://duck.ai/");
+                if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
+                        || chatWebView.getUrl().equals("about:blank")) {
+                    chatWebView.loadUrl("https://duck.ai/");
+                }
             }
         } else {
             if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
@@ -589,6 +843,7 @@ public class MainActivity extends Activity {
             super.onPageFinished(view, url);
             progressBar.setVisibility(View.GONE);
             view.evaluateJavascript(BLOB_JS, null);
+            view.evaluateJavascript(SETTINGS_INJECT_JS, null);
             if (pendingVoiceChat) {
                 view.evaluateJavascript(
                         "setTimeout(function() {" +
@@ -606,6 +861,7 @@ public class MainActivity extends Activity {
             super.onProgressChanged(view, newProgress);
             if (newProgress > 5) {
                 view.evaluateJavascript(BLOB_JS, null);
+                view.evaluateJavascript(SETTINGS_INJECT_JS, null);
             }
         }
 
@@ -630,6 +886,11 @@ public class MainActivity extends Activity {
 
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback,
                 WebChromeClient.FileChooserParams fileChooserParams) {
+            if (pendingSharedFileUri != null) {
+                filePathCallback.onReceiveValue(new Uri[] { pendingSharedFileUri });
+                pendingSharedFileUri = null;
+                return true;
+            }
             if (mUploadMessage != null) {
                 mUploadMessage.onReceiveValue(null);
             }

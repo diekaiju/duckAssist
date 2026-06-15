@@ -8,3 +8,5 @@ Hauptmerkmale:
 - Intelligente Link-Handhabung: Externe Links werden automatisch in Ihrem Standard-Webbrowser geöffnet.
 - Verbesserter Datenschutz: Sitzungsdaten bleiben erhalten und der App-Cache wird beim Verlassen oder Schließen der App automatisch gelöscht.
 - Native Dateiunterstützung: Nahtloses Hochladen von Dokumenten und Herunterladen von Anhängen.
+- Untere Drawer-Benutzeroberfläche: Schieben Sie ein praktisches Bottom-Sheet-Drawer nach oben, wenn Sie Assistenten-Verknüpfungen verwenden oder Inhalte teilen, um mit der KI zu interagieren, ohne den Kontext Ihrer Hintergrund-App zu verlieren.
+- Anpassbare Prompts & UI-Einstellungen: Konfigurieren Sie das Verhalten des unteren Drawers, die Sprachoptionen des Assistenten und standardmäßige Prompt-Suffixe für das Teilen von Texten und Dokumenten über eine individuell gestaltete HTML-Einstellungsseite.
