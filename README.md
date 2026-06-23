@@ -66,8 +66,13 @@ The app uses:
 
 If you encounter any issues or have suggestions for improvements, please open an issue in the repository. Pull requests are always welcome.
 
+## Donate
+
+If you like duckAssist, you're welcome to send a donation. duckAssist is vibe coded in my free time bringing you the best user experience.
+
 ## Buy me a coffee
 
 If you want to support the developer:
 
  [![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/diekaiju)
+
