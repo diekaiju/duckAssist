@@ -52,8 +52,7 @@ Simply click on any link or citation provided by the AI. The app will instantly 
 </p>
 <p align="center">
   <img src="screenshot/image (4).jpg" width="30%" />
-  <img src="screenshot/image (5).jpeg" width="30%" />
-  <img src="screenshot/image (1).png" width="30%" />
+  <img src="screenshot/image (5).jpg" width="30%" />
 </p>
 
 ## License
