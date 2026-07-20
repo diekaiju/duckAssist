@@ -21,12 +21,17 @@ import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import androidx.core.content.FileProvider;
 import android.content.ContentValues;
 import android.provider.MediaStore;
 import android.util.Base64;
@@ -63,12 +68,17 @@ import java.net.URLEncoder;
 public class MainActivity extends Activity {
 
     private WebView chatWebView;
+    private float currentZoomLevel = 100f;
     private ProgressBar progressBar;
     private ValueCallback<Uri[]> mUploadMessage;
     private final static int FILE_CHOOSER_REQUEST_CODE = 1;
+    private final static int CAMERA_REQUEST_CODE = 2;
+    private final static int CAMERA_PERMISSION_REQUEST_CODE = 124;
+    private Uri cameraImageUri = null;
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
     private boolean pendingVoiceChat = false;
+    private boolean pendingContinueLastChat = false;
     private Uri pendingSharedFileUri = null;
 
     private String pendingDownloadUrl;
@@ -96,6 +106,23 @@ public class MainActivity extends Activity {
             "        return u;" +
             "    };" +
             "    console.log('Blob Handler Patch Active');" +
+            "})();";
+
+    private final String CLIPBOARD_JS = "(function() {" +
+            "    if (window.clipboardPatchInjected) return;" +
+            "    window.clipboardPatchInjected = true;" +
+            "    if (navigator.clipboard) {" +
+            "        navigator.clipboard.writeText = function(text) {" +
+            "            return new Promise((resolve, reject) => {" +
+            "                try {" +
+            "                    Android.copyToClipboard(text);" +
+            "                    resolve();" +
+            "                } catch(e) {" +
+            "                    reject(e);" +
+            "                }" +
+            "            });" +
+            "        };" +
+            "    }" +
             "})();";
 
     private final String VOICE_JS = "(function() {" +
@@ -191,6 +218,76 @@ public class MainActivity extends Activity {
             "    }" +
             "})();";
 
+    private final String CONTINUE_CHAT_JS = "(function() {" +
+            "  console.log('Continue Last Chat Trigger Started');" +
+            "  var attempts = 0;" +
+            "  var sidebarClicked = false;" +
+            "  function tryClickLastChat() {" +
+            "    attempts++;" +
+            "    if (attempts > 10) {" +
+            "      console.log('Stopping after 10 attempts');" +
+            "      return true;" +
+            "    }" +
+            "    var targetPath = document.querySelector('path[d^=\"M8.25 3.5C7.56 3.5\"], path[d*=\"M8.25 3.5\"]');" +
+            "    if (targetPath) {" +
+            "      console.log('Last chat SVG found!');" +
+            "      var svgEl = targetPath.closest('svg');" +
+            "      if (svgEl) {" +
+            "        var parent1 = svgEl.parentElement;" +
+            "        if (parent1) {" +
+            "          var parent2 = parent1.parentElement;" +
+            "          if (parent2) {" +
+            "            console.log('Clicking parent of parent of SVG');" +
+            "            parent2.click();" +
+            "            var parent3 = parent2.parentElement;" +
+            "            if (parent3) {" +
+            "              parent3.click();" +
+            "              var parent4 = parent3.parentElement;" +
+            "              if (parent4) {" +
+            "                parent4.click();" +
+            "              }" +
+            "            }" +
+            "            return true;" +
+            "          }" +
+            "        }" +
+            "      }" +
+            "      var container = targetPath.closest('a, [role=\"link\"], li');" +
+            "      if (container) {" +
+            "        console.log('Clicking fallback container');" +
+            "        container.click();" +
+            "        return true;" +
+            "      }" +
+            "    }" +
+            "    if (!sidebarClicked) {" +
+            "      var sidebarPath = document.querySelector('path[d*=\"M9.41 10.125a.625.625 0 1 1 0 1.25H1.624\"]');" +
+            "      var sidebarBtn = sidebarPath ? sidebarPath.closest('button, [role=\"button\"]') : null;" +
+            "      if (!sidebarBtn) {" +
+            "          sidebarBtn = document.querySelector('button[aria-label*=\"sidebar\"], button[aria-label*=\"Sidebar\"]');" +
+            "      }" +
+            "      if (sidebarBtn && sidebarBtn.offsetParent !== null) {" +
+            "        console.log('Opening sidebar...');" +
+            "        sidebarBtn.click();" +
+            "        sidebarClicked = true;" +
+            "      }" +
+            "    }" +
+            "    return false;" +
+            "  }" +
+            "  if (!tryClickLastChat()) {" +
+            "    var observer = new MutationObserver(function(mutations, obs) {" +
+            "      if (tryClickLastChat()) {" +
+            "        obs.disconnect();" +
+            "        clearInterval(fallbackInterval);" +
+            "      }" +
+            "    });" +
+            "    observer.observe(document.body, { childList: true, subtree: true });" +
+            "    var fallbackInterval = setInterval(tryClickLastChat, 1000);" +
+            "    setTimeout(function() { " +
+            "      observer.disconnect(); " +
+            "      clearInterval(fallbackInterval); " +
+            "    }, 12000);" +
+            "  }" +
+            "})();";
+
     private void clearCacheData() {
         if (chatWebView != null) {
             chatWebView.clearCache(true);
@@ -251,8 +348,8 @@ public class MainActivity extends Activity {
         webSettings.setSupportZoom(false);
         webSettings.setBuiltInZoomControls(false);
         webSettings.setDisplayZoomControls(false);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
+        webSettings.setAllowFileAccess(false);
+        webSettings.setAllowContentAccess(false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             webSettings.setMediaPlaybackRequiresUserGesture(false);
         }
@@ -264,11 +361,12 @@ public class MainActivity extends Activity {
 
         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
         int savedZoom = prefs.getInt("text_zoom", 100);
+        currentZoomLevel = (float) savedZoom;
         webSettings.setTextZoom(savedZoom);
 
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
-        cookieManager.setAcceptThirdPartyCookies(chatWebView, true);
+        cookieManager.setAcceptThirdPartyCookies(chatWebView, false);
 
         chatWebView.setWebViewClient(new MyWebViewClient());
         chatWebView.setWebChromeClient(new MyWebChromeClient());
@@ -333,10 +431,10 @@ public class MainActivity extends Activity {
             @Override
             public boolean onScale(ScaleGestureDetector detector) {
                 float scale = detector.getScaleFactor();
-                int currentZoom = chatWebView.getSettings().getTextZoom();
-                int newZoom = (int) (currentZoom * scale);
+                currentZoomLevel = currentZoomLevel * scale;
                 // Clamp text zoom between 50% and 300%
-                newZoom = Math.max(50, Math.min(newZoom, 300));
+                currentZoomLevel = Math.max(50f, Math.min(currentZoomLevel, 300f));
+                int newZoom = Math.round(currentZoomLevel);
                 chatWebView.getSettings().setTextZoom(newZoom);
                 
                 SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
@@ -344,13 +442,16 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            scaleGestureDetector.setQuickScaleEnabled(false);
+        }
 
         chatWebView.setOnTouchListener(new View.OnTouchListener() {
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 scaleGestureDetector.onTouchEvent(event);
-                return false;
+                return event.getPointerCount() > 1 || scaleGestureDetector.isInProgress();
             }
         });
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -359,8 +460,20 @@ public class MainActivity extends Activity {
             }
         }
 
-        handleIntent(getIntent());
+        handleIntent(getIntent(), false);
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
+    }
+
+    @JavascriptInterface
+    public void copyToClipboard(final String text) {
+        runOnUiThread(() -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("Copied Text", text);
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(MainActivity.this, R.string.url_copied, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     @JavascriptInterface
@@ -386,6 +499,8 @@ public class MainActivity extends Activity {
             WebSettings ws = webView.getSettings();
             ws.setJavaScriptEnabled(true);
             ws.setDomStorageEnabled(true);
+            ws.setAllowFileAccess(false);
+            ws.setAllowContentAccess(false);
             
             webView.addJavascriptInterface(new Object() {
                 @JavascriptInterface
@@ -396,6 +511,7 @@ public class MainActivity extends Activity {
                         obj.put("use_drawer_assistant", prefs.getBoolean("use_drawer_assistant", true));
                         obj.put("use_drawer_shared", prefs.getBoolean("use_drawer_shared", true));
                         obj.put("trigger_voice_assistant", prefs.getBoolean("trigger_voice_assistant", true));
+                        obj.put("continue_last_chat", prefs.getBoolean("continue_last_chat", false));
                         obj.put("ask_duck_suffix", prefs.getString("ask_duck_suffix", ""));
                         obj.put("shared_doc_suffix", prefs.getString("shared_doc_suffix", ""));
                     } catch (Exception e) {
@@ -413,6 +529,7 @@ public class MainActivity extends Activity {
                              .putBoolean("use_drawer_assistant", obj.getBoolean("use_drawer_assistant"))
                              .putBoolean("use_drawer_shared", obj.getBoolean("use_drawer_shared"))
                              .putBoolean("trigger_voice_assistant", obj.getBoolean("trigger_voice_assistant"))
+                             .putBoolean("continue_last_chat", obj.getBoolean("continue_last_chat"))
                              .putString("ask_duck_suffix", obj.getString("ask_duck_suffix"))
                              .putString("shared_doc_suffix", obj.getString("shared_doc_suffix"))
                              .apply();
@@ -590,6 +707,16 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, "Permission denied. Cannot download file.", Toast.LENGTH_SHORT).show();
             }
             clearPendingDownload();
+        } else if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                openCamera();
+            } else {
+                Toast.makeText(this, "Camera permission denied.", Toast.LENGTH_SHORT).show();
+                if (mUploadMessage != null) {
+                    mUploadMessage.onReceiveValue(null);
+                    mUploadMessage = null;
+                }
+            }
         }
     }
 
@@ -680,10 +807,10 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handleIntent(intent);
+        handleIntent(intent, true);
     }
 
-    private void handleIntent(Intent intent) {
+    private void handleIntent(Intent intent, boolean isResuming) {
         if (intent == null)
             return;
         String action = intent.getAction();
@@ -701,6 +828,11 @@ public class MainActivity extends Activity {
             if (data != null) {
                 String query = data.getQueryParameter("q");
                 if (query != null && !query.isEmpty()) {
+                    SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                    boolean continueLastChat = prefs.getBoolean("continue_last_chat", false);
+                    if (continueLastChat) {
+                        pendingContinueLastChat = true;
+                    }
                     try {
                         org.json.JSONObject handoffObj = new org.json.JSONObject();
                         handoffObj.put("aiChatPrompt", query);
@@ -746,6 +878,10 @@ public class MainActivity extends Activity {
             if (pendingSharedFileUri != null) {
                 showCustomBanner("Tap 📎 to attach the shared file");
                 SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                boolean continueLastChat = prefs.getBoolean("continue_last_chat", false);
+                if (continueLastChat) {
+                    pendingContinueLastChat = true;
+                }
                 String docSuffix = prefs.getString("shared_doc_suffix", "");
                 if (docSuffix != null && !docSuffix.trim().isEmpty()) {
                     try {
@@ -767,9 +903,13 @@ public class MainActivity extends Activity {
                 }
             } else if (sharedText != null) {
                 SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                boolean continueLastChat = prefs.getBoolean("continue_last_chat", false);
                 String suffix = prefs.getString("ask_duck_suffix", "");
                 if (suffix != null && !suffix.trim().isEmpty()) {
                     sharedText = sharedText + "\n\n" + suffix;
+                }
+                if (continueLastChat) {
+                    pendingContinueLastChat = true;
                 }
                 try {
                     org.json.JSONObject handoffObj = new org.json.JSONObject();
@@ -806,6 +946,11 @@ public class MainActivity extends Activity {
                     chatWebView.loadUrl("https://duck.ai/");
                 }
             }
+        } else if (Intent.ACTION_MAIN.equals(action) || action == null) {
+            if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
+                    || chatWebView.getUrl().equals("about:blank")) {
+                chatWebView.loadUrl("https://duck.ai/");
+            }
         } else {
             if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
                     || chatWebView.getUrl().equals("about:blank")) {
@@ -815,6 +960,30 @@ public class MainActivity extends Activity {
     }
 
     private class MyWebViewClient extends WebViewClient {
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (request != null && request.getUrl() != null) {
+                String host = request.getUrl().getHost();
+                if (host != null && host.equals("improving.duckduckgo.com")) {
+                    return new WebResourceResponse("text/plain", "UTF-8", new java.io.ByteArrayInputStream(new byte[0]));
+                }
+            }
+            return super.shouldInterceptRequest(view, request);
+        }
+
+        @SuppressWarnings("deprecation")
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+            if (url != null) {
+                Uri uri = Uri.parse(url);
+                String host = uri.getHost();
+                if (host != null && host.equals("improving.duckduckgo.com")) {
+                    return new WebResourceResponse("text/plain", "UTF-8", new java.io.ByteArrayInputStream(new byte[0]));
+                }
+            }
+            return super.shouldInterceptRequest(view, url);
+        }
+
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             Uri uri = Uri.parse(url);
@@ -836,6 +1005,7 @@ public class MainActivity extends Activity {
             super.onPageStarted(view, url, favicon);
             progressBar.setVisibility(View.VISIBLE);
             view.evaluateJavascript(BLOB_JS, null);
+            view.evaluateJavascript(CLIPBOARD_JS, null);
         }
 
         @Override
@@ -843,7 +1013,12 @@ public class MainActivity extends Activity {
             super.onPageFinished(view, url);
             progressBar.setVisibility(View.GONE);
             view.evaluateJavascript(BLOB_JS, null);
+            view.evaluateJavascript(CLIPBOARD_JS, null);
             view.evaluateJavascript(SETTINGS_INJECT_JS, null);
+            if (pendingContinueLastChat) {
+                view.evaluateJavascript(CONTINUE_CHAT_JS, null);
+                pendingContinueLastChat = false;
+            }
             if (pendingVoiceChat) {
                 view.evaluateJavascript(
                         "setTimeout(function() {" +
@@ -861,6 +1036,7 @@ public class MainActivity extends Activity {
             super.onProgressChanged(view, newProgress);
             if (newProgress > 5) {
                 view.evaluateJavascript(BLOB_JS, null);
+                view.evaluateJavascript(CLIPBOARD_JS, null);
                 view.evaluateJavascript(SETTINGS_INJECT_JS, null);
             }
         }
@@ -895,12 +1071,59 @@ public class MainActivity extends Activity {
                 mUploadMessage.onReceiveValue(null);
             }
             mUploadMessage = filePathCallback;
-            Intent i = new Intent(Intent.ACTION_GET_CONTENT);
-            i.addCategory(Intent.CATEGORY_OPENABLE);
-            i.setType("*/*");
-            startActivityForResult(Intent.createChooser(i, "File Chooser"), FILE_CHOOSER_REQUEST_CODE);
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+            builder.setTitle("Select Option");
+            builder.setItems(new CharSequence[]{"Camera", "File Manager"}, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    if (which == 0) {
+                        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                            requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+                        } else {
+                            openCamera();
+                        }
+                    } else {
+                        openFileManager();
+                    }
+                }
+            });
+            builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                    if (mUploadMessage != null) {
+                        mUploadMessage.onReceiveValue(null);
+                        mUploadMessage = null;
+                    }
+                }
+            });
+            builder.show();
             return true;
         }
+    }
+
+    private void openCamera() {
+        try {
+            File photoFile = new File(getExternalCacheDir(), "camera_photo_" + System.currentTimeMillis() + ".jpg");
+            cameraImageUri = FileProvider.getUriForFile(this, "org.diekaiju.duckassist.fileprovider", photoFile);
+            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri);
+            startActivityForResult(intent, CAMERA_REQUEST_CODE);
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening camera", e);
+            Toast.makeText(this, "Failed to open camera", Toast.LENGTH_SHORT).show();
+            if (mUploadMessage != null) {
+                mUploadMessage.onReceiveValue(null);
+                mUploadMessage = null;
+            }
+        }
+    }
+
+    private void openFileManager() {
+        Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        startActivityForResult(Intent.createChooser(i, "File Chooser"), FILE_CHOOSER_REQUEST_CODE);
     }
 
     @Override
@@ -915,6 +1138,15 @@ public class MainActivity extends Activity {
                 if (dataString != null) {
                     result = new Uri[] { Uri.parse(dataString) };
                 }
+            }
+            mUploadMessage.onReceiveValue(result);
+            mUploadMessage = null;
+        } else if (requestCode == CAMERA_REQUEST_CODE) {
+            if (null == mUploadMessage)
+                return;
+            Uri[] result = null;
+            if (resultCode == RESULT_OK && cameraImageUri != null) {
+                result = new Uri[] { cameraImageUri };
             }
             mUploadMessage.onReceiveValue(result);
             mUploadMessage = null;

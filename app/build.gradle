@@ -11,10 +11,10 @@ android {
     android.buildFeatures.buildConfig true
     defaultConfig {
         applicationId "org.diekaiju.duckassist"
-        minSdk 21
+        minSdk 24
         targetSdk 35
-        versionCode 245
-        versionName "0.4.0"
+        versionCode 246
+        versionName "0.4.1"
     }
 
     signingConfigs {
