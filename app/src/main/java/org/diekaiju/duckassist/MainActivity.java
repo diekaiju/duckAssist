@@ -996,30 +996,6 @@ public class MainActivity extends Activity {
 
     private class MyWebViewClient extends WebViewClient {
         @Override
-        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-            if (request != null && request.getUrl() != null) {
-                String host = request.getUrl().getHost();
-                if (host != null && host.equals("improving.duckduckgo.com")) {
-                    return new WebResourceResponse("text/plain", "UTF-8", new java.io.ByteArrayInputStream(new byte[0]));
-                }
-            }
-            return super.shouldInterceptRequest(view, request);
-        }
-
-        @SuppressWarnings("deprecation")
-        @Override
-        public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-            if (url != null) {
-                Uri uri = Uri.parse(url);
-                String host = uri.getHost();
-                if (host != null && host.equals("improving.duckduckgo.com")) {
-                    return new WebResourceResponse("text/plain", "UTF-8", new java.io.ByteArrayInputStream(new byte[0]));
-                }
-            }
-            return super.shouldInterceptRequest(view, url);
-        }
-
-        @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             Uri uri = Uri.parse(url);
             String host = uri.getHost();
