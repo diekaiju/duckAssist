@@ -1,0 +1,1 @@
+Improved Continue Last Chat feature to be more reliable during page loading. Settings now save automatically on any edit. Automatically deselect text fields when the keyboard is closed. Redesigned Settings with a polished DuckDuckGo theme and removed redundant buttons. Restored review and feedback submissions. Stronger support for custom OS distributions.
