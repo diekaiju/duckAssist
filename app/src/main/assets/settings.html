@@ -6,28 +6,28 @@
     <title>duckAssist Settings</title>
     <style>
         :root {
-            --bg-color: #17181c;
-            --card-bg: #202127;
+            --bg-color: #16171a;
+            --card-bg: #212226;
             --accent-color: #de5833;
             --accent-hover: #e06948;
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --border-color: #2e3039;
-            --input-bg: #1c1d22;
-            --toggle-bg: #374151;
+            --text-primary: #f5f6f7;
+            --text-secondary: #9fa2a6;
+            --border-color: #2c2d30;
+            --input-bg: #191a1d;
+            --toggle-bg: #3e4045;
         }
 
         @media (prefers-color-scheme: light) {
             :root {
-                --bg-color: #f9fafb;
+                --bg-color: #f7f7f7;
                 --card-bg: #ffffff;
-                --accent-color: #e25c38;
-                --accent-hover: #f16f4c;
-                --text-primary: #111827;
-                --text-secondary: #6b7280;
-                --border-color: #e5e7eb;
-                --input-bg: #f3f4f6;
-                --toggle-bg: #d1d5db;
+                --accent-color: #de5833;
+                --accent-hover: #e06948;
+                --text-primary: #222222;
+                --text-secondary: #656565;
+                --border-color: #e5e5e5;
+                --input-bg: #fdfdfd;
+                --toggle-bg: #d5d5d5;
             }
         }
 
@@ -35,7 +35,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -53,16 +53,16 @@
             width: 100%;
             max-width: 480px;
             background-color: var(--card-bg);
-            border-radius: 20px;
+            border-radius: 16px;
             padding: 24px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             border: 1px solid var(--border-color);
-            animation: slideUp 0.4s ease-out;
+            animation: slideUp 0.3s ease-out;
         }
 
         @keyframes slideUp {
             from {
-                transform: translateY(20dp);
+                transform: translateY(12px);
                 opacity: 0;
             }
             to {
@@ -75,37 +75,66 @@
             margin-bottom: 24px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 12px;
         }
 
+        .header-title-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         .logo-icon {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             color: var(--accent-color);
         }
 
         h1 {
-            font-size: 20px;
+            font-size: 19px;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text-primary);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s, color 0.2s;
+            width: 34px;
+            height: 34px;
+        }
+
+        .close-btn:hover {
+            background-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .close-btn:active {
+            transform: scale(0.95);
         }
 
         .section-title {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
             color: var(--accent-color);
-            margin: 20px 0 10px 0;
+            margin: 24px 0 8px 0;
         }
 
         .setting-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 0;
+            padding: 14px 0;
             border-bottom: 1px solid var(--border-color);
         }
 
@@ -115,8 +144,8 @@
         }
 
         .setting-label {
-            font-size: 15px;
-            font-weight: 500;
+            font-size: 14px;
+            font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 2px;
         }
@@ -124,14 +153,16 @@
         .setting-desc {
             font-size: 12px;
             color: var(--text-secondary);
+            line-height: 1.4;
         }
 
         /* Switch toggle style */
         .switch {
             position: relative;
             display: inline-block;
-            width: 46px;
-            height: 26px;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
         }
 
         .switch input {
@@ -148,21 +179,21 @@
             right: 0;
             bottom: 0;
             background-color: var(--toggle-bg);
-            transition: .3s;
-            border-radius: 34px;
+            transition: .2s ease;
+            border-radius: 24px;
         }
 
         .slider:before {
             position: absolute;
             content: "";
-            height: 20px;
-            width: 20px;
+            height: 18px;
+            width: 18px;
             left: 3px;
             bottom: 3px;
             background-color: white;
-            transition: .3s;
+            transition: .2s ease;
             border-radius: 50%;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
         }
 
         input:checked + .slider {
@@ -175,27 +206,28 @@
 
         /* Input field styles */
         .input-group {
-            margin-top: 12px;
+            margin-top: 14px;
             margin-bottom: 16px;
         }
 
         .input-label {
             display: block;
-            font-size: 14px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             margin-bottom: 6px;
             color: var(--text-primary);
         }
 
         textarea {
             width: 100%;
-            height: 70px;
+            height: 80px;
             background-color: var(--input-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 10px;
+            padding: 12px;
             color: var(--text-primary);
-            font-size: 14px;
+            font-size: 13.5px;
+            line-height: 1.4;
             resize: none;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
@@ -203,58 +235,29 @@
         textarea:focus {
             outline: none;
             border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(222, 88, 51, 0.15);
-        }
-
-        /* Button styles */
-        .actions {
-            margin-top: 28px;
-            display: flex;
-            gap: 12px;
-        }
-
-        button {
-            flex: 1;
-            padding: 12px;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.1s, opacity 0.2s;
-            border: none;
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        .btn-cancel {
-            background-color: var(--input-bg);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-        }
-
-        .btn-save {
-            background-color: var(--accent-color);
-            color: white;
-        }
-
-        .btn-save:hover {
-            background-color: var(--accent-hover);
+            box-shadow: 0 0 0 2px rgba(222, 88, 51, 0.2);
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            <h1>duckAssist Settings</h1>
+            <div class="header-title-container">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <h1>duckAssist Settings</h1>
+            </div>
+            <button type="button" class="close-btn" onclick="cancel()" aria-label="Close Settings">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
         </header>
 
-        <form id="settingsForm">
+        <form id="settingsForm" onsubmit="event.preventDefault();">
             <div class="section-title">General</div>
 
             <div class="setting-row">
@@ -312,15 +315,26 @@
                 <label class="input-label" for="shared_doc_suffix">Shared Document AI Suffix</label>
                 <textarea id="shared_doc_suffix" placeholder="Optional prompt suffix for shared files (e.g. Summarize this document)"></textarea>
             </div>
-
-            <div class="actions">
-                <button type="button" class="btn-cancel" onclick="cancel()">Cancel</button>
-                <button type="submit" class="btn-save">Save Settings</button>
-            </div>
         </form>
     </div>
 
     <script>
+        let lastHeight = window.innerHeight;
+
+        function autoSave() {
+            const data = {
+                use_drawer_assistant: document.getElementById('use_drawer_assistant').checked,
+                use_drawer_shared: document.getElementById('use_drawer_shared').checked,
+                trigger_voice_assistant: document.getElementById('trigger_voice_assistant').checked,
+                continue_last_chat: document.getElementById('continue_last_chat').checked,
+                ask_duck_suffix: document.getElementById('ask_duck_suffix').value,
+                shared_doc_suffix: document.getElementById('shared_doc_suffix').value
+            };
+            if (typeof AndroidSettings !== 'undefined' && AndroidSettings.saveSettingsAuto) {
+                AndroidSettings.saveSettingsAuto(JSON.stringify(data));
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             if (typeof AndroidSettings !== 'undefined' && AndroidSettings.getSettingsJson) {
                 try {
@@ -336,7 +350,13 @@
                 }
             }
 
-            // Auto-scroll focused textareas to the top of the screen
+            // Auto-save checkboxes on change
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', autoSave);
+            });
+
+            // Auto-scroll focused textareas and set up auto-save on blur
             const textareas = document.querySelectorAll('textarea');
             textareas.forEach(textarea => {
                 textarea.addEventListener('focus', () => {
@@ -344,22 +364,20 @@
                         textarea.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }, 300);
                 });
-            });
-        });
 
-        document.getElementById('settingsForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const data = {
-                use_drawer_assistant: document.getElementById('use_drawer_assistant').checked,
-                use_drawer_shared: document.getElementById('use_drawer_shared').checked,
-                trigger_voice_assistant: document.getElementById('trigger_voice_assistant').checked,
-                continue_last_chat: document.getElementById('continue_last_chat').checked,
-                ask_duck_suffix: document.getElementById('ask_duck_suffix').value,
-                shared_doc_suffix: document.getElementById('shared_doc_suffix').value
-            };
-            if (typeof AndroidSettings !== 'undefined' && AndroidSettings.saveSettings) {
-                AndroidSettings.saveSettings(JSON.stringify(data));
-            }
+                textarea.addEventListener('blur', autoSave);
+            });
+
+            // Auto-deselect textbox when keyboard is closed (window height increases significantly)
+            window.addEventListener('resize', () => {
+                const currentHeight = window.innerHeight;
+                if (currentHeight - lastHeight > 150) {
+                    if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') {
+                        document.activeElement.blur();
+                    }
+                }
+                lastHeight = currentHeight;
+            });
         });
 
         function cancel() {

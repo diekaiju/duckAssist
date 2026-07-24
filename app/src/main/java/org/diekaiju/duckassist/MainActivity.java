@@ -226,6 +226,9 @@ public class MainActivity extends Activity {
             "    attempts++;" +
             "    if (attempts > 10) {" +
             "      console.log('Stopping after 10 attempts');" +
+            "      if (typeof Android !== 'undefined' && Android.onContinueLastChatSuccess) {" +
+            "        Android.onContinueLastChatSuccess();" +
+            "      }" +
             "      return true;" +
             "    }" +
             "    var targetPath = document.querySelector('path[d^=\"M8.25 3.5C7.56 3.5\"], path[d*=\"M8.25 3.5\"]');" +
@@ -247,6 +250,9 @@ public class MainActivity extends Activity {
             "                parent4.click();" +
             "              }" +
             "            }" +
+            "            if (typeof Android !== 'undefined' && Android.onContinueLastChatSuccess) {" +
+            "              Android.onContinueLastChatSuccess();" +
+            "            }" +
             "            return true;" +
             "          }" +
             "        }" +
@@ -255,6 +261,9 @@ public class MainActivity extends Activity {
             "      if (container) {" +
             "        console.log('Clicking fallback container');" +
             "        container.click();" +
+            "        if (typeof Android !== 'undefined' && Android.onContinueLastChatSuccess) {" +
+            "          Android.onContinueLastChatSuccess();" +
+            "        }" +
             "        return true;" +
             "      }" +
             "    }" +
@@ -284,6 +293,9 @@ public class MainActivity extends Activity {
             "    setTimeout(function() { " +
             "      observer.disconnect(); " +
             "      clearInterval(fallbackInterval); " +
+            "      if (typeof Android !== 'undefined' && Android.onContinueLastChatSuccess) {" +
+            "        Android.onContinueLastChatSuccess();" +
+            "      }" +
             "    }, 12000);" +
             "  }" +
             "})();";
@@ -465,6 +477,11 @@ public class MainActivity extends Activity {
     }
 
     @JavascriptInterface
+    public void onContinueLastChatSuccess() {
+        runOnUiThread(() -> pendingContinueLastChat = false);
+    }
+
+    @JavascriptInterface
     public void copyToClipboard(final String text) {
         runOnUiThread(() -> {
             ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
@@ -539,6 +556,24 @@ public class MainActivity extends Activity {
                         });
                     } catch (Exception e) {
                         Log.e(TAG, "Error saving settings", e);
+                    }
+                }
+
+                @JavascriptInterface
+                public void saveSettingsAuto(String jsonStr) {
+                    try {
+                        org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+                        SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                        prefs.edit()
+                             .putBoolean("use_drawer_assistant", obj.getBoolean("use_drawer_assistant"))
+                             .putBoolean("use_drawer_shared", obj.getBoolean("use_drawer_shared"))
+                             .putBoolean("trigger_voice_assistant", obj.getBoolean("trigger_voice_assistant"))
+                             .putBoolean("continue_last_chat", obj.getBoolean("continue_last_chat"))
+                             .putString("ask_duck_suffix", obj.getString("ask_duck_suffix"))
+                             .putString("shared_doc_suffix", obj.getString("shared_doc_suffix"))
+                             .apply();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error auto-saving settings", e);
                     }
                 }
 
@@ -1017,7 +1052,6 @@ public class MainActivity extends Activity {
             view.evaluateJavascript(SETTINGS_INJECT_JS, null);
             if (pendingContinueLastChat) {
                 view.evaluateJavascript(CONTINUE_CHAT_JS, null);
-                pendingContinueLastChat = false;
             }
             if (pendingVoiceChat) {
                 view.evaluateJavascript(
