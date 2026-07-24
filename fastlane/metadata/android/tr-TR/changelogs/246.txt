@@ -1,1 +1,6 @@
-"Son Sohbete Devam Et" özelliği sayfa yüklemeleri sırasında daha güvenilir hale getirildi. Ayarlar artık her düzenlemede otomatik olarak kaydediliyor. Klavye kapatıldığında metin alanlarının seçimi otomatik olarak kaldırılıyor. Ayarlar arayüzü DuckDuckGo temasıyla yenilendi ve gereksiz düğmeler kaldırıldı. İnceleme ve geri bildirim gönderimleri geri getirildi. Özel OS dağıtımları için daha güçlü destek eklendi.
+- "Son Sohbete Devam Et" kararlılığı iyileştirildi.
+- Ayarlar otomatik kaydetme ve DuckDuckGo temasıyla yenilendi.
+- Metin alanları için otomatik odaklanma ve seçim kaldırma düzeltildi.
+- Web sitesi inceleme ve geri bildirim gönderimleri geri getirildi.
+- Dosya ekleri için seçenekler (Kamera/Dosya Yöneticisi) eklendi.
+- Özel OS dağıtımları için destek artırıldı.

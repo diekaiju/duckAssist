@@ -1,1 +1,6 @@
-Recurso "Continuar último chat" aprimorado para ser mais confiável ao carregar páginas. As configurações agora salvam automaticamente a cada edição. Desmarcação automática dos campos de texto ao fechar o teclado. Design de Configurações renovado com o tema do DuckDuckGo e botões redundantes removidos. Envio de avaliações e feedback restaurado. Suporte aprimorado para distribuições de OS customizadas.
+- Estabilidade aprimorada para "Continuar último chat".
+- Configurações renovadas com salvamento automático e tema DuckDuckGo.
+- Correção de foco automático e desmarcação de campos de texto.
+- Envio de avaliações e feedback do site restaurado.
+- Adicionadas opções (Câmera/Gerenciador de arquivos) para anexos.
+- Suporte aprimorado para distribuições de OS customizadas.
