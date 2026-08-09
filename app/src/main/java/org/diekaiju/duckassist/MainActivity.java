@@ -472,7 +472,15 @@ public class MainActivity extends Activity {
             }
         }
 
-        handleIntent(getIntent(), false);
+        boolean restored = false;
+        if (savedInstanceState != null) {
+            if (chatWebView.restoreState(savedInstanceState) != null) {
+                restored = true;
+            }
+        }
+        if (!restored) {
+            handleIntent(getIntent(), false);
+        }
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
     }
 
@@ -836,6 +844,14 @@ public class MainActivity extends Activity {
     protected void onStop() {
         super.onStop();
         //clearCacheData();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (chatWebView != null) {
+            chatWebView.saveState(outState);
+        }
     }
 
     @Override
