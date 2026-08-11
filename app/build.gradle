@@ -13,8 +13,8 @@ android {
         applicationId "org.diekaiju.duckassist"
         minSdk 24
         targetSdk 35
-        versionCode 246
-        versionName "0.4.1"
+        versionCode 247
+        versionName "0.4.2"
     }
 
     signingConfigs {

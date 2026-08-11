@@ -1,0 +1,1 @@
+- Prevented WebView from reloading and losing state when the app is paused or minimized.

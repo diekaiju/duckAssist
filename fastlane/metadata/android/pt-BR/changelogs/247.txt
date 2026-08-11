@@ -1,0 +1,1 @@
+- Impedido o recarregamento do WebView e a perda de estado quando o aplicativo é pausado ou minimizado.

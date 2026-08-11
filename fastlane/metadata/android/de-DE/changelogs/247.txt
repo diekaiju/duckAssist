@@ -1,0 +1,1 @@
+- Verhindert das Neuladen von WebView und den Verlust des Zustands, wenn die App pausiert oder minimiert wird.
