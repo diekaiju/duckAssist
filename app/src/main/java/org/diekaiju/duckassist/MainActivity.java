@@ -137,6 +137,106 @@ public class MainActivity extends Activity {
             "    setInterval(check, 500);" +
             "})();";
 
+    private final String AUTO_FOCUS_JS = "(function() {" +
+            "    if (window.autoFocusMonitorInjected) return;" +
+            "    window.autoFocusMonitorInjected = true;" +
+            "    var lastFocusedUrl = null;" +
+            "    var lastFocusedElement = null;" +
+            "    var checkAndFocus = function() {" +
+            "        var currentUrl = window.location.href;" +
+            "        var textareas = document.querySelectorAll('textarea');" +
+            "        var el = null;" +
+            "        for (var i = 0; i < textareas.length; i++) {" +
+            "            var placeholder = textareas[i].getAttribute('placeholder') || '';" +
+            "            if (placeholder.toLowerCase().includes('ask anything') || placeholder.toLowerCase().includes('reply')) {" +
+            "                el = textareas[i];" +
+            "                break;" +
+            "            }" +
+            "        }" +
+            "        if (el && (currentUrl !== lastFocusedUrl || el !== lastFocusedElement)) {" +
+            "            var doFocus = function() {" +
+            "                var rect = el.getBoundingClientRect();" +
+            "                var x = rect.left + rect.width / 2;" +
+            "                var y = rect.top + rect.height / 2;" +
+            "                var touch = new Touch({" +
+            "                    identifier: Date.now()," +
+            "                    target: el," +
+            "                    clientX: x," +
+            "                    clientY: y," +
+            "                    screenX: x," +
+            "                    screenY: y," +
+            "                    pageX: x," +
+            "                    pageY: y" +
+            "                });" +
+            "                var touchStart = new TouchEvent('touchstart', {" +
+            "                    bubbles: true," +
+            "                    cancelable: true," +
+            "                    touches: [touch]," +
+            "                    targetTouches: [touch]," +
+            "                    changedTouches: [touch]" +
+            "                });" +
+            "                el.dispatchEvent(touchStart);" +
+            "                var touchEnd = new TouchEvent('touchend', {" +
+            "                    bubbles: true," +
+            "                    cancelable: true," +
+            "                    touches: []," +
+            "                    targetTouches: []," +
+            "                    changedTouches: [touch]" +
+            "                });" +
+            "                el.dispatchEvent(touchEnd);" +
+            "                el.click();" +
+            "                el.focus();" +
+            "                var event = new Event('focus', { bubbles: true });" +
+            "                el.dispatchEvent(event);" +
+            "                if (window.Android && window.Android.showSoftKeyboard) {" +
+            "                    window.Android.showSoftKeyboard();" +
+            "                }" +
+            "            };" +
+            "            setTimeout(function() {" +
+            "                doFocus();" +
+            "                var lockEndTime = Date.now() + 2000;" +
+            "                var lockFocus = function(e) {" +
+            "                    if (Date.now() < lockEndTime && document.activeElement !== el) {" +
+            "                        el.focus();" +
+            "                    }" +
+            "                };" +
+            "                document.addEventListener('focus', lockFocus, true);" +
+            "                setTimeout(function() {" +
+            "                    document.removeEventListener('focus', lockFocus, true);" +
+            "                }, 2050);" +
+            "            }, 500);" +
+            "            lastFocusedUrl = currentUrl;" +
+            "            lastFocusedElement = el;" +
+            "        }" +
+            "    };" +
+            "    var init = function() {" +
+            "        if (!document.body) {" +
+            "            setTimeout(init, 50);" +
+            "            return;" +
+            "        }" +
+            "        var observer = new MutationObserver(checkAndFocus);" +
+            "        observer.observe(document.body, { childList: true, subtree: true });" +
+            "        var wrap = function(type) {" +
+            "            var orig = history[type];" +
+            "            return function() {" +
+            "                var rv = orig.apply(this, arguments);" +
+            "                var e = new Event(type);" +
+            "                e.arguments = arguments;" +
+            "                window.dispatchEvent(e);" +
+            "                return rv;" +
+            "            };" +
+            "        };" +
+            "        history.pushState = wrap('pushState');" +
+            "        history.replaceState = wrap('replaceState');" +
+            "        window.addEventListener('pushState', checkAndFocus);" +
+            "        window.addEventListener('replaceState', checkAndFocus);" +
+            "        window.addEventListener('popstate', checkAndFocus);" +
+            "        setInterval(checkAndFocus, 1000);" +
+            "        checkAndFocus();" +
+            "    };" +
+            "    init();" +
+            "})();";
+
     private final String CLIPBOARD_JS = "(function() {" +
             "    if (window.clipboardPatchInjected) return;" +
             "    window.clipboardPatchInjected = true;" +
@@ -623,6 +723,26 @@ public class MainActivity extends Activity {
     }
 
     @JavascriptInterface
+    public void showSoftKeyboard() {
+        runOnUiThread(() -> {
+            chatWebView.requestFocus();
+            android.view.inputmethod.InputMethodManager imm = 
+                (android.view.inputmethod.InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showSoftInput(chatWebView, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public void requestWebViewFocus() {
+        runOnUiThread(() -> {
+            chatWebView.requestFocus();
+            chatWebView.requestFocusFromTouch();
+        });
+    }
+
+    @JavascriptInterface
     public void setImageZoomActive(boolean active) {
         runOnUiThread(() -> {
             isImageZoomActive = active;
@@ -707,6 +827,7 @@ public class MainActivity extends Activity {
                         obj.put("use_drawer_shared", prefs.getBoolean("use_drawer_shared", true));
                         obj.put("trigger_voice_assistant", prefs.getBoolean("trigger_voice_assistant", true));
                         obj.put("continue_last_chat", prefs.getBoolean("continue_last_chat", false));
+                        obj.put("auto_focus_keyboard", prefs.getBoolean("auto_focus_keyboard", false));
                         obj.put("ask_duck_suffix", prefs.getString("ask_duck_suffix", ""));
                         obj.put("shared_doc_suffix", prefs.getString("shared_doc_suffix", ""));
                     } catch (Exception e) {
@@ -725,6 +846,7 @@ public class MainActivity extends Activity {
                              .putBoolean("use_drawer_shared", obj.getBoolean("use_drawer_shared"))
                              .putBoolean("trigger_voice_assistant", obj.getBoolean("trigger_voice_assistant"))
                              .putBoolean("continue_last_chat", obj.getBoolean("continue_last_chat"))
+                             .putBoolean("auto_focus_keyboard", obj.getBoolean("auto_focus_keyboard"))
                              .putString("ask_duck_suffix", obj.getString("ask_duck_suffix"))
                              .putString("shared_doc_suffix", obj.getString("shared_doc_suffix"))
                              .apply();
@@ -747,6 +869,7 @@ public class MainActivity extends Activity {
                              .putBoolean("use_drawer_shared", obj.getBoolean("use_drawer_shared"))
                              .putBoolean("trigger_voice_assistant", obj.getBoolean("trigger_voice_assistant"))
                              .putBoolean("continue_last_chat", obj.getBoolean("continue_last_chat"))
+                             .putBoolean("auto_focus_keyboard", obj.getBoolean("auto_focus_keyboard"))
                              .putString("ask_duck_suffix", obj.getString("ask_duck_suffix"))
                              .putString("shared_doc_suffix", obj.getString("shared_doc_suffix"))
                              .apply();
@@ -1329,6 +1452,10 @@ public class MainActivity extends Activity {
             view.evaluateJavascript(BLOB_JS, null);
             view.evaluateJavascript(CLIPBOARD_JS, null);
             view.evaluateJavascript(IMAGE_ZOOM_MONITOR_JS, null);
+            SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            if (prefs.getBoolean("auto_focus_keyboard", false)) {
+                view.evaluateJavascript(AUTO_FOCUS_JS, null);
+            }
             view.evaluateJavascript(SETTINGS_INJECT_JS, null);
             view.evaluateJavascript(SWIPE_SCROLL_JS, null);
             if (url != null && (url.startsWith("https://duck.ai") || url.startsWith("https://duckduckgo.com"))) {

@@ -325,6 +325,17 @@
                 </label>
             </div>
 
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Auto Focus & Open Keyboard</div>
+                    <div class="setting-desc">Automatically focus the chat input box and open the keyboard when app opens</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="auto_focus_keyboard">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <div class="section-title">Prompts Suffix</div>
 
             <div class="input-group">
@@ -358,6 +369,7 @@
                 use_drawer_shared: document.getElementById('use_drawer_shared').checked,
                 trigger_voice_assistant: document.getElementById('trigger_voice_assistant').checked,
                 continue_last_chat: document.getElementById('continue_last_chat').checked,
+                auto_focus_keyboard: document.getElementById('auto_focus_keyboard').checked,
                 ask_duck_suffix: document.getElementById('ask_duck_suffix').value,
                 shared_doc_suffix: document.getElementById('shared_doc_suffix').value
             };
@@ -374,6 +386,7 @@
                     document.getElementById('use_drawer_shared').checked = settings.use_drawer_shared;
                     document.getElementById('trigger_voice_assistant').checked = settings.trigger_voice_assistant;
                     document.getElementById('continue_last_chat').checked = settings.continue_last_chat || false;
+                    document.getElementById('auto_focus_keyboard').checked = settings.auto_focus_keyboard || false;
                     document.getElementById('ask_duck_suffix').value = settings.ask_duck_suffix || '';
                     document.getElementById('shared_doc_suffix').value = settings.shared_doc_suffix || '';
                 } catch (e) {
