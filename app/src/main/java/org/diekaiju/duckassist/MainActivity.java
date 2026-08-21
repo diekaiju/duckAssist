@@ -318,77 +318,82 @@ public class MainActivity extends Activity {
     private boolean isRequestingViewer = false;
 
     private final String DUMP_CHATS_JS = "(function() {" +
-            "  if (!window.indexedDB) {" +
-            "    Android.onChatsFetched(JSON.stringify({error: 'IndexedDB not supported'}));" +
-            "    return;" +
-            "  }" +
-            "  if (!window.indexedDB.databases) {" +
-            "    Android.onChatsFetched(JSON.stringify({error: 'databases() not supported'}));" +
-            "    return;" +
-            "  }" +
-            "  window.indexedDB.databases().then(async (dbs) => {" +
-            "    let result = {};" +
-            "    for (let dbInfo of dbs) {" +
-            "      let dbName = dbInfo.name;" +
-            "      result[dbName] = await new Promise((resolve) => {" +
-            "        let req = window.indexedDB.open(dbName);" +
-            "        req.onerror = () => resolve({error: 'failed to open'});" +
-            "        req.onsuccess = (e) => {" +
-            "          let db = e.target.result;" +
-            "          let storeNames = Array.from(db.objectStoreNames);" +
-            "          if (storeNames.length === 0) {" +
-            "            db.close();" +
-            "            resolve({});" +
-            "            return;" +
-            "          }" +
-            "          let dbData = {};" +
-            "          let completed = 0;" +
-            "          storeNames.forEach((storeName) => {" +
-            "            try {" +
-            "              let tx = db.transaction(storeName, 'readonly');" +
-            "              let store = tx.objectStore(storeName);" +
-            "              let getAllReq = store.getAll();" +
-            "              tx.oncomplete = () => {" +
-            "                completed++;" +
-            "                if (completed === storeNames.length) {" +
-            "                  db.close();" +
-            "                  resolve(dbData);" +
-            "                }" +
-            "              };" +
-            "              tx.onerror = () => {" +
-            "                completed++;" +
-            "                if (completed === storeNames.length) {" +
-            "                  db.close();" +
-            "                  resolve(dbData);" +
-            "                }" +
-            "              };" +
-            "              getAllReq.onsuccess = () => {" +
-            "                dbData[storeName] = getAllReq.result;" +
-            "              };" +
-            "            } catch (err) {" +
-            "              completed++;" +
-            "              dbData[storeName] = {error: err.toString()};" +
-            "              if (completed === storeNames.length) {" +
-            "                db.close();" +
-            "                resolve(dbData);" +
+            "  function dump() {" +
+            "    let knownDbs = ['savedAIChatData', 'duck-ai-chats', 'saved-chats', 'aiChatData'];" +
+            "    let getDbs = (window.indexedDB && window.indexedDB.databases) ? window.indexedDB.databases() : Promise.resolve([]);" +
+            "    getDbs.then(async (dbs) => {" +
+            "      let dbNamesSet = new Set((dbs || []).map(d => d.name).filter(Boolean));" +
+            "      knownDbs.forEach(k => dbNamesSet.add(k));" +
+            "      let dbNames = Array.from(dbNamesSet);" +
+            "      let result = {};" +
+            "      for (let dbName of dbNames) {" +
+            "        let res = await new Promise((resolve) => {" +
+            "          try {" +
+            "            let req = window.indexedDB.open(dbName);" +
+            "            req.onerror = () => resolve(null);" +
+            "            req.onsuccess = (e) => {" +
+            "              let db = e.target.result;" +
+            "              let storeNames = Array.from(db.objectStoreNames);" +
+            "              if (storeNames.length === 0) {" +
+            "                try { db.close(); } catch(err){}" +
+            "                resolve(null);" +
+            "                return;" +
             "              }" +
-            "            }" +
-            "          });" +
-            "        };" +
-            "      });" +
-            "    }" +
-            "    let localData = {};" +
-            "    for (let i = 0; i < localStorage.length; i++) {" +
-            "      let key = localStorage.key(i);" +
-            "      localData[key] = localStorage.getItem(key);" +
-            "    }" +
-            "    Android.onChatsFetched(JSON.stringify({" +
-            "      indexedDB: result," +
-            "      localStorage: localData" +
-            "    }));" +
-            "  }).catch(err => {" +
-            "    Android.onChatsFetched(JSON.stringify({error: err.toString()}));" +
-            "  });" +
+            "              let dbData = {};" +
+            "              let completed = 0;" +
+            "              storeNames.forEach((storeName) => {" +
+            "                try {" +
+            "                  let tx = db.transaction(storeName, 'readonly');" +
+            "                  let store = tx.objectStore(storeName);" +
+            "                  let getAllReq = store.getAll();" +
+            "                  getAllReq.onsuccess = () => {" +
+            "                    dbData[storeName] = getAllReq.result;" +
+            "                    completed++;" +
+            "                    if (completed === storeNames.length) {" +
+            "                      try { db.close(); } catch(err){}" +
+            "                      resolve(dbData);" +
+            "                    }" +
+            "                  };" +
+            "                  getAllReq.onerror = () => {" +
+            "                    completed++;" +
+            "                    if (completed === storeNames.length) {" +
+            "                      try { db.close(); } catch(err){}" +
+            "                      resolve(dbData);" +
+            "                    }" +
+            "                  };" +
+            "                } catch(err) {" +
+            "                  completed++;" +
+            "                  if (completed === storeNames.length) {" +
+            "                    try { db.close(); } catch(e){}" +
+            "                    resolve(dbData);" +
+            "                  }" +
+            "                }" +
+            "              });" +
+            "            };" +
+            "          } catch(err) { resolve(null); }" +
+            "        });" +
+            "        if (res && Object.keys(res).length > 0) result[dbName] = res;" +
+            "      }" +
+            "      let localData = {};" +
+            "      try {" +
+            "        for (let i = 0; i < localStorage.length; i++) {" +
+            "          let key = localStorage.key(i);" +
+            "          localData[key] = localStorage.getItem(key);" +
+            "        }" +
+            "      } catch(e){}" +
+            "      if (typeof Android !== 'undefined' && Android.onChatsFetched) {" +
+            "        Android.onChatsFetched(JSON.stringify({" +
+            "          indexedDB: result," +
+            "          localStorage: localData" +
+            "        }));" +
+            "      }" +
+            "    }).catch(err => {" +
+            "      if (typeof Android !== 'undefined' && Android.onChatsFetched) {" +
+            "        Android.onChatsFetched(JSON.stringify({error: err.toString()}));" +
+            "      }" +
+            "    });" +
+            "  }" +
+            "  dump();" +
             "})();";
 
     private void clearCacheData() {
@@ -587,6 +592,10 @@ public class MainActivity extends Activity {
 
     @JavascriptInterface
     public String getChatsJson() {
+        if (lastFetchedChatsJson == null || lastFetchedChatsJson.equals("{}") || lastFetchedChatsJson.isEmpty()) {
+            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            lastFetchedChatsJson = prefs.getString("cached_chats_json", "{}");
+        }
         return lastFetchedChatsJson;
     }
 
@@ -596,7 +605,12 @@ public class MainActivity extends Activity {
             if (chatsViewerDialog != null && chatsViewerDialog.isShowing()) {
                 chatsViewerDialog.dismiss();
             } else {
-                chatWebView.loadUrl("https://duck.ai/");
+                String currentUrl = chatWebView.getUrl();
+                if (currentUrl != null && currentUrl.startsWith("file:///android_asset/")) {
+                    finish();
+                } else {
+                    chatWebView.loadUrl("https://duck.ai/");
+                }
             }
         });
     }
@@ -741,6 +755,10 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void onChatsFetched(String jsonStr) {
         runOnUiThread(() -> {
+            if (jsonStr == null || jsonStr.isEmpty() || jsonStr.contains("\"error\"") || jsonStr.equals("{}")) {
+                Log.w(TAG, "Fetched chats empty or contain error, skipping overwrite: " + jsonStr);
+                return;
+            }
             lastFetchedChatsJson = jsonStr;
             SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
             prefs.edit().putString("cached_chats_json", jsonStr).apply();
@@ -1269,6 +1287,9 @@ public class MainActivity extends Activity {
             view.evaluateJavascript(CLIPBOARD_JS, null);
             view.evaluateJavascript(SETTINGS_INJECT_JS, null);
             view.evaluateJavascript(SWIPE_SCROLL_JS, null);
+            if (url != null && (url.startsWith("https://duck.ai") || url.startsWith("https://duckduckgo.com"))) {
+                view.evaluateJavascript(DUMP_CHATS_JS, null);
+            }
             if (pendingContinueLastChat) {
                 view.evaluateJavascript(CONTINUE_CHAT_JS, null);
             }

@@ -6,15 +6,15 @@
     <title>Saved Chats</title>
     <style>
         :root {
-            --bg-color: #16171a;
-            --card-bg: #212226;
+            --bg-color: #111111;
+            --card-bg: #1e1e1e;
             --accent-color: #de5833;
             --accent-hover: #e06948;
             --text-primary: #f5f6f7;
             --text-secondary: #9fa2a6;
-            --border-color: #2c2d30;
-            --bubble-user: #de5833;
-            --bubble-ai: #2c2d30;
+            --border-color: #222222;
+            --bubble-user: #2e2e2e;
+            --bubble-ai: transparent;
         }
 
         @media (prefers-color-scheme: light) {
@@ -193,7 +193,7 @@
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
-            z-index: 5;
+            z-index: 20;
         }
 
         .chat-details-container.active {
@@ -249,14 +249,16 @@
             background-color: var(--bubble-user);
             color: white;
             align-self: flex-end;
-            border-bottom-right-radius: 4px;
+            border-radius: 20px;
         }
 
         .message-bubble.assistant {
             background-color: var(--bubble-ai);
             color: var(--text-primary);
             align-self: flex-start;
-            border-bottom-left-radius: 4px;
+            padding-left: 0;
+            padding-right: 0;
+            max-width: 100%;
         }
 
         .empty-state {
@@ -333,6 +335,189 @@
         .message-bubble.user a {
             color: #fff;
         }
+
+        /* Assistant Message Layout styles */
+        .assistant-message-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-self: flex-start;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .assistant-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            margin-top: 8px;
+        }
+
+        .assistant-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #111111;
+        }
+
+        .assistant-name {
+            font-weight: 700;
+            font-size: 13.5px;
+            color: var(--text-primary);
+        }
+
+        .assistant-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 8px;
+            color: #9fa2a6;
+        }
+
+        .action-icon-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            padding: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s;
+        }
+
+        .action-icon-btn:hover {
+            color: var(--text-primary);
+        }
+
+        /* User Message Copy Wrapper */
+        .user-message-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            max-width: 85%;
+            align-self: flex-end;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+            margin-right: 4px;
+            opacity: 0.6;
+            transition: opacity 0.15s;
+        }
+
+        .user-message-container:hover .user-actions {
+            opacity: 1;
+        }
+
+        /* Code Block Container with Copy Header */
+        .code-container {
+            position: relative;
+            margin: 10px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            border: 1px solid var(--border-color);
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            background-color: #242424;
+            font-size: 11px;
+            color: #8b949e;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+
+        .copy-code-btn {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .copy-code-btn:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: #ffffff;
+        }
+
+        /* Math rendering styles */
+        .math-block {
+            display: block;
+            margin: 10px 0;
+            padding: 8px 12px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 4px;
+            font-family: "KaTeX_Main", "Times New Roman", serif;
+            font-size: 15px;
+            overflow-x: auto;
+        }
+
+        .math-inline {
+            font-family: "KaTeX_Main", "Times New Roman", serif;
+            padding: 0 2px;
+            font-size: 14.5px;
+            color: #e6edf3;
+        }
+
+        .frac {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .frac sup {
+            display: block;
+            border-bottom: 1px solid currentColor;
+            padding: 0 2px;
+        }
+
+        .frac sub {
+            display: block;
+            padding: 0 2px;
+        }
+
+        /* Toast notification */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: #2e2e2e;
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 999;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -351,6 +536,9 @@
     <div class="container">
         <!-- List View -->
         <div class="chat-list-container" id="chatListContainer">
+            <div class="search-container" style="padding: 12px 16px 4px 16px;">
+                <input type="text" id="searchInput" placeholder="Search chats by title or model..." oninput="filterChats()" style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color); background-color: var(--card-bg); color: var(--text-primary); font-size: 13.5px; outline: none;">
+            </div>
             <div class="empty-state" id="emptyState">
                 <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -378,6 +566,12 @@
                     <div class="details-title" id="detailsTitle">Chat Details</div>
                     <div class="details-subtitle" id="detailsSubtitle">Model Info</div>
                 </div>
+                <button type="button" class="action-icon-btn" onclick="copyFullTranscript()" aria-label="Copy Full Transcript" title="Copy Full Transcript">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                </button>
             </div>
             <div class="messages-container" id="messagesContainer"></div>
         </div>
@@ -400,9 +594,23 @@
             }
         }
 
+        function getTimestamp(chat) {
+            if (!chat) return 0;
+            let val = chat.lastEdit || chat.createdAt || chat.updatedAt || chat.timestamp;
+            if (!val && Array.isArray(chat.messages) && chat.messages.length > 0) {
+                const lastMsg = chat.messages[chat.messages.length - 1];
+                val = lastMsg.createdAt || lastMsg.generationTimestamp || lastMsg.timestamp;
+            }
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            const d = new Date(val).getTime();
+            return isNaN(d) ? 0 : d;
+        }
+
         function formatDate(timestamp) {
             if (!timestamp) return "";
             const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return "";
             return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         }
 
@@ -413,16 +621,81 @@
             );
         }
 
+        function formatMath(text) {
+            if (!text) return "";
+            
+            // 1. Block math $$ ... $$ or \[ ... \]
+            text = text.replace(/\$\$([\s\S]*?)\$\$/g, (m, math) => {
+                return `<div class="math-block">${parseLaTeX(math)}</div>`;
+            });
+            text = text.replace(/\\\[([\s\S]*?)\\\]/g, (m, math) => {
+                return `<div class="math-block">${parseLaTeX(math)}</div>`;
+            });
+            
+            // 2. Inline math $ ... $ or \( ... \)
+            text = text.replace(/\$([^\$\n]+)\$/g, (m, math) => {
+                return `<span class="math-inline">${parseLaTeX(math)}</span>`;
+            });
+            text = text.replace(/\\\(([\s\S]*?)\\\)/g, (m, math) => {
+                return `<span class="math-inline">${parseLaTeX(math)}</span>`;
+            });
+            
+            return text;
+        }
+
+        function parseLaTeX(expr) {
+            if (!expr) return "";
+            let s = expr.trim();
+            
+            const symbols = {
+                '\\Omega': 'Ω', '\\omega': 'ω', '\\approx': '≈', '\\rightarrow': '→', '\\leftarrow': '←',
+                '\\Delta': 'Δ', '\\delta': 'δ', '\\infty': '∞', '\\times': '×', '\\div': '÷',
+                '\\pm': '±', '\\le': '≤', '\\ge': '≥', '\\neq': '≠', '\\mu': 'μ', '\\pi': 'π',
+                '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ', '\\theta': 'θ', '\\lambda': 'λ',
+                '\\sigma': 'σ', '\\tau': 'τ', '\\phi': 'φ', '\\psi': 'ψ', '\\partial': '∂',
+                '\\sqrt': '√', '\\sum': 'Σ', '\\prod': 'Π', '\\int': '∫', '\\degree': '°',
+                '\\deg': '°', '\\cdot': '·', '\\sim': '~', '\\equiv': '≡', '\\subset': '⊂',
+                '\\subseteq': '⊆', '\\in': '∈', '\\forall': '∀', '\\exists': '∃'
+            };
+            
+            for (let k in symbols) {
+                const reg = new RegExp(k.replace(/\\/g, '\\\\') + '(?![a-zA-Z])', 'g');
+                s = s.replace(reg, symbols[k]);
+            }
+            
+            s = s.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '<span class="frac"><sup>$1</sup>/<sub>$2</sub></span>');
+            s = s.replace(/\\sqrt\{([^}]+)\}/g, '√($1)');
+            s = s.replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>');
+            s = s.replace(/\^([a-zA-Z0-9])/g, '<sup>$1</sup>');
+            s = s.replace(/\_\{([^}]+)\}/g, '<sub>$1</sub>');
+            s = s.replace(/\_([a-zA-Z0-9])/g, '<sub>$1</sub>');
+            
+            return s;
+        }
+
         function formatMessageContent(content) {
             if (!content) return "";
+            let html = typeof content === 'string' ? content : (typeof content === 'object' && content.text ? content.text : String(content));
             
             const codeBlocks = [];
-            let html = content;
             
             // 1. Extract and escape code blocks
             html = html.replace(/```(\w*)?[\s\n]*([\s\S]*?)```/g, (match, lang, code) => {
                 const id = `__CODE_BLOCK_${codeBlocks.length}__`;
-                codeBlocks.push(`<pre class="code-block"><code class="${lang || ''}">${escapeHTML(code.trim())}</code></pre>`);
+                const cleanLang = lang ? lang.trim() : 'code';
+                const codeHtml = `
+                    <div class="code-container">
+                        <div class="code-header">
+                            <span>${escapeHTML(cleanLang)}</span>
+                            <button type="button" class="copy-code-btn" onclick="copyCodeFromContainer(this)">
+                                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                Copy code
+                            </button>
+                        </div>
+                        <pre class="code-block"><code>${escapeHTML(code.trim())}</code></pre>
+                    </div>
+                `;
+                codeBlocks.push(codeHtml);
                 return id;
             });
             
@@ -435,6 +708,9 @@
             
             // Escape HTML for safety, preserving tokens
             html = escapeHTML(html);
+            
+            // Apply Math formatting
+            html = formatMath(html);
             
             // 3. Headers
             html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
@@ -464,7 +740,6 @@
                         tableHTML += '<table class="markdown-table">';
                     }
                     
-                    // Skip table column format headers (e.g. |---|:---|)
                     if (line.match(/^[|:\s-]+$/)) {
                         lines[i] = ''; 
                         continue; 
@@ -530,7 +805,7 @@
                 if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
                     return line;
                 }
-                if (trimmed.startsWith('__CODE_BLOCK_')) {
+                if (trimmed.startsWith('__CODE_BLOCK_') || trimmed.startsWith('<div class="code-container">')) {
                     return line;
                 }
                 return `<p>${line}</p>`;
@@ -547,6 +822,7 @@
         }
 
         function extractChats(dumpData) {
+            if (!dumpData) return [];
             if (document.getElementById('debugOutput')) {
                 document.getElementById('debugOutput').innerText = JSON.stringify(dumpData, null, 2);
             }
@@ -554,24 +830,56 @@
             let allMessages = [];
             let conversationsMetadata = [];
 
+            function getRawMsgsArray(item) {
+                if (!item || typeof item !== 'object') return null;
+                let msgs = item.messages || item.turns || item.list || item.history || item.items || item.conversation;
+                if (Array.isArray(msgs)) return msgs;
+                if (msgs && typeof msgs === 'object') {
+                    const vals = Object.values(msgs);
+                    if (vals.length > 0 && vals.some(v => v && typeof v === 'object' && (v.role || v.content || v.parts || v.text || v.message || v.prompt || v.response))) {
+                        return vals;
+                    }
+                }
+                return null;
+            }
+
             function getMessageContent(m) {
                 if (!m) return '';
+                if (typeof m === 'string') return m;
+                if (typeof m === 'number') return String(m);
                 
-                // If content is an object (e.g. holds file attachment text)
-                let baseContent = m.content || m.message || m.text || m.body || '';
-                if (baseContent && typeof baseContent === 'object') {
-                    baseContent = baseContent.text || baseContent.content || baseContent.message || '';
-                }
-                
-                // If text is split into parts array (typical for Duck.ai responses)
+                // 1. Array of parts (Duck.ai assistant response format)
                 if (Array.isArray(m.parts)) {
                     const partsText = m.parts
-                        .filter(p => p && p.text)
-                        .map(p => p.text)
-                        .join('');
+                        .map(p => {
+                            if (!p) return '';
+                            if (typeof p === 'string') return p;
+                            return p.text || p.content || p.value || p.delta || '';
+                        })
+                        .filter(Boolean)
+                        .join('\n');
                     if (partsText) return partsText;
                 }
-                return baseContent;
+                
+                // 2. Direct string / object properties
+                let base = m.content || m.message || m.text || m.body || m.value || m.prompt || m.response || m.reply || m.answer || m.query || '';
+                
+                if (base && typeof base === 'object') {
+                    if (Array.isArray(base.parts)) {
+                        const partsText = base.parts
+                            .map(p => (typeof p === 'string' ? p : (p.text || p.content || p.value || '')))
+                            .filter(Boolean)
+                            .join('\n');
+                        if (partsText) return partsText;
+                    }
+                    if (Array.isArray(base)) {
+                        return base.map(item => getMessageContent(item)).filter(Boolean).join('\n');
+                    }
+                    base = base.text || base.content || base.message || base.value || base.val || '';
+                }
+                
+                if (typeof base === 'string') return base;
+                return base ? String(base) : '';
             }
 
             function mapTurnsArray(rawArray) {
@@ -579,13 +887,25 @@
                 if (!Array.isArray(rawArray)) return mapped;
                 rawArray.forEach(m => {
                     if (!m) return;
-                    const req = m.request || m.prompt || m.query || m.question;
-                    const res = m.response || m.answer || m.reply;
-                    if (req || res) {
-                        if (req) mapped.push({ role: 'user', content: getMessageContent(req) });
-                        if (res) mapped.push({ role: 'assistant', content: getMessageContent(res) });
-                    } else {
-                        const rawRole = (m.role || m.sender || m.type || '').toLowerCase();
+                    if (typeof m === 'string') {
+                        mapped.push({ role: 'assistant', content: m });
+                        return;
+                    }
+                    
+                    const req = m.request || m.prompt || m.query || m.question || m.userPrompt;
+                    const res = m.response || m.answer || m.reply || m.botResponse;
+                    
+                    if (req && typeof req !== 'boolean' && (typeof req === 'string' || typeof req === 'object')) {
+                        const reqText = getMessageContent(req);
+                        if (reqText) mapped.push({ role: 'user', content: reqText });
+                    }
+                    if (res && typeof res !== 'boolean' && (typeof res === 'string' || typeof res === 'object')) {
+                        const resText = getMessageContent(res);
+                        if (resText) mapped.push({ role: 'assistant', content: resText });
+                    }
+                    
+                    if (!req && !res) {
+                        const rawRole = (m.role || m.sender || m.type || m.author || '').toLowerCase();
                         const isUser = (rawRole === 'user' || rawRole === 'human' || rawRole === 'client' || rawRole === 'me');
                         const content = getMessageContent(m);
                         if (content) {
@@ -613,19 +933,31 @@
                                 // Assume it could be conversations metadata
                                 items.forEach(item => {
                                     if (item && typeof item === 'object') {
-                                        const rawMsgs = item.messages || item.turns || item.list || item.history;
-                                        // If it already has nested messages/turns, extract it directly
-                                        if (Array.isArray(rawMsgs)) {
-                                            chats.push({
-                                                id: item.id || item.uuid || item.chatId || Math.random().toString(),
-                                                title: item.title || item.name || "Untitled Chat",
-                                                messages: mapTurnsArray(rawMsgs),
-                                                model: item.model || "",
-                                                createdAt: item.createdAt || item.updatedAt || item.timestamp || null
-                                            });
+                                        const rawMsgs = getRawMsgsArray(item);
+                                        if (rawMsgs) {
+                                            const mapped = mapTurnsArray(rawMsgs);
+                                            if (mapped.length > 0) {
+                                                chats.push({
+                                                    id: item.id || item.uuid || item.chatId || Math.random().toString(),
+                                                    title: item.title || item.name || "Untitled Chat",
+                                                    messages: mapped,
+                                                    model: item.model || "",
+                                                    createdAt: item.lastEdit || item.createdAt || item.updatedAt || item.timestamp || null
+                                                });
+                                            }
                                         } else {
-                                            // Save metadata for relational reconstruction
-                                            conversationsMetadata.push(item);
+                                            const singleTurn = mapTurnsArray([item]);
+                                            if (singleTurn.length > 0) {
+                                                chats.push({
+                                                    id: item.id || item.uuid || item.chatId || Math.random().toString(),
+                                                    title: item.title || item.name || singleTurn[0].content || "Untitled Chat",
+                                                    messages: singleTurn,
+                                                    model: item.model || "",
+                                                    createdAt: item.lastEdit || item.createdAt || item.updatedAt || item.timestamp || null
+                                                });
+                                            } else {
+                                                conversationsMetadata.push(item);
+                                            }
                                         }
                                     }
                                 });
@@ -641,28 +973,34 @@
                     try {
                         let val = JSON.parse(dumpData.localStorage[key]);
                         if (val && typeof val === 'object') {
-                            const rawMsgs = val.messages || val.turns || val.list || val.history;
-                            if (Array.isArray(rawMsgs)) {
-                                chats.push({
-                                    id: val.id || val.uuid || val.chatId || key,
-                                    title: val.title || val.name || "Untitled Chat",
-                                    messages: mapTurnsArray(rawMsgs),
-                                    model: val.model || "",
-                                    createdAt: val.createdAt || null
-                                });
+                            const rawMsgs = getRawMsgsArray(val);
+                            if (rawMsgs) {
+                                const mapped = mapTurnsArray(rawMsgs);
+                                if (mapped.length > 0) {
+                                    chats.push({
+                                        id: val.id || val.uuid || val.chatId || key,
+                                        title: val.title || val.name || "Untitled Chat",
+                                        messages: mapped,
+                                        model: val.model || "",
+                                        createdAt: val.lastEdit || val.createdAt || val.updatedAt || val.timestamp || null
+                                    });
+                                }
                             }
                         } else if (Array.isArray(val)) {
                             val.forEach(item => {
                                 if (item && typeof item === 'object') {
-                                    const rawMsgs = item.messages || item.turns || item.list || item.history;
-                                    if (Array.isArray(rawMsgs)) {
-                                        chats.push({
-                                            id: item.id || item.uuid || item.chatId || Math.random().toString(),
-                                            title: item.title || item.name || "Untitled Chat",
-                                            messages: mapTurnsArray(rawMsgs),
-                                            model: item.model || "",
-                                            createdAt: item.createdAt || null
-                                        });
+                                    const rawMsgs = getRawMsgsArray(item);
+                                    if (rawMsgs) {
+                                        const mapped = mapTurnsArray(rawMsgs);
+                                        if (mapped.length > 0) {
+                                            chats.push({
+                                                id: item.id || item.uuid || item.chatId || Math.random().toString(),
+                                                title: item.title || item.name || "Untitled Chat",
+                                                messages: mapped,
+                                                model: item.model || "",
+                                                createdAt: item.lastEdit || item.createdAt || item.updatedAt || item.timestamp || null
+                                            });
+                                        }
                                     }
                                 }
                             });
@@ -671,9 +1009,8 @@
                 }
             }
             
-            // If we found separate messages, let's group them by sessionId/conversationId/threadId
+            // Group separate messages if metadata exists
             if (allMessages.length > 0 && conversationsMetadata.length > 0) {
-                // Group messages by session reference
                 const messagesBySession = {};
                 allMessages.forEach(msg => {
                     if (msg && typeof msg === 'object') {
@@ -687,14 +1024,11 @@
                     }
                 });
 
-                // Reconstruct chats using metadata
                 conversationsMetadata.forEach(meta => {
                     const id = meta.id || meta.uuid || meta.chatId;
-                    // Skip __metadata__ node
                     if (id && id !== '__metadata__') {
                         const msgs = messagesBySession[id] || [];
-                        // Sort messages by timestamp if available
-                        msgs.sort((a, b) => (a.timestamp || a.createdAt || 0) - (b.timestamp || b.createdAt || 0));
+                        msgs.sort((a, b) => getTimestamp(a) - getTimestamp(b));
                         
                         const mappedMsgs = mapTurnsArray(msgs);
 
@@ -704,7 +1038,7 @@
                                 title: meta.title || meta.name || meta.prompt || (mappedMsgs[0] ? mappedMsgs[0].content : "Untitled Chat"),
                                 messages: mappedMsgs,
                                 model: meta.model || "",
-                                createdAt: meta.createdAt || meta.updatedAt || meta.timestamp || null
+                                createdAt: meta.lastEdit || meta.createdAt || meta.updatedAt || meta.timestamp || null
                             });
                         }
                     }
@@ -721,23 +1055,38 @@
                 }
             });
 
-            // Sort chats by createdAt descending
-            uniqueChats.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            // Sort chats by date descending (newest at the top)
+            uniqueChats.sort((a, b) => getTimestamp(b) - getTimestamp(a));
             return uniqueChats;
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        function refreshChats() {
             const bridge = (typeof AndroidChatsViewer !== 'undefined') ? AndroidChatsViewer : (typeof Android !== 'undefined' ? Android : null);
             if (bridge && bridge.getChatsJson) {
                 try {
                     const rawJson = bridge.getChatsJson();
-                    const dumpData = JSON.parse(rawJson);
-                    allChats = extractChats(dumpData);
-                    renderChatList();
+                    if (rawJson && rawJson !== "{}" && rawJson !== "") {
+                        const dumpData = JSON.parse(rawJson);
+                        allChats = extractChats(dumpData);
+                        renderChatList();
+                    }
                 } catch(e) {
                     console.error("Error parsing chats:", e);
                 }
             }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshChats();
+            let attempts = 0;
+            const interval = setInterval(() => {
+                attempts++;
+                if (allChats.length > 0 || attempts > 10) {
+                    clearInterval(interval);
+                } else {
+                    refreshChats();
+                }
+            }, 500);
         });
 
         function renderChatList() {
@@ -774,35 +1123,207 @@
             });
         }
 
-        function showDetails(chat) {
-            document.getElementById('detailsTitle').innerText = chat.title || "Untitled Chat";
-            document.getElementById('detailsSubtitle').innerText = `${chat.model || "Duck.ai"} • ${chat.messages.length} messages`;
+        let currentActiveChat = null;
 
-            const container = document.getElementById('messagesContainer');
-            container.innerHTML = '';
+        function showToast(msg) {
+            let toast = document.getElementById('toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="#4caf50" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg> ${escapeHTML(msg)}`;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
 
-            chat.messages.forEach(msg => {
-                const bubble = document.createElement('div');
-                
-                // Get role dynamically
-                const rawRole = (msg.role || msg.sender || msg.type || '').toLowerCase();
-                const isUser = (rawRole === 'user' || rawRole === 'human' || rawRole === 'client' || rawRole === 'me');
-                const role = isUser ? 'user' : 'assistant';
-                
-                // Get content dynamically
-                const content = msg.content || msg.message || msg.text || msg.body || '';
-
-                if (content) {
-                    bubble.className = `message-bubble ${role}`;
-                    bubble.innerHTML = formatMessageContent(content);
-                    container.appendChild(bubble);
+        function filterChats() {
+            const query = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+            const items = document.querySelectorAll('.chat-item');
+            allChats.forEach((chat, idx) => {
+                const item = items[idx];
+                if (!item) return;
+                const matchTitle = (chat.title || '').toLowerCase().includes(query);
+                const matchModel = (chat.model || '').toLowerCase().includes(query);
+                if (!query || matchTitle || matchModel) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
                 }
             });
+        }
 
-            document.getElementById('chatDetailsContainer').classList.add('active');
-            // Scroll to bottom
+        function copyToClipboardBridge(text, toastMsg) {
+            const bridge = (typeof AndroidChatsViewer !== 'undefined') ? AndroidChatsViewer : (typeof Android !== 'undefined' ? Android : null);
+            if (bridge && bridge.copyToClipboard) {
+                bridge.copyToClipboard(text);
+            } else {
+                navigator.clipboard.writeText(text);
+            }
+            if (toastMsg) showToast(toastMsg);
+        }
+
+        function copyCodeFromContainer(btn) {
+            const container = btn.closest('.code-container');
+            const codeEl = container.querySelector('code');
+            if (codeEl) {
+                copyToClipboardBridge(codeEl.innerText, "Code copied");
+            }
+        }
+
+        function formatModelName(model) {
+            if (!model) return "AI Assistant";
+            let name = model.split('/').pop();
+            name = name.replace(/[-_]/g, ' ');
+            return name.replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function copyUserMessage(btn) {
+            const container = btn.closest('.user-message-container');
+            const bubble = container.querySelector('.message-bubble.user');
+            if (bubble) {
+                copyToClipboardBridge(bubble.innerText, "Prompt copied");
+            }
+        }
+
+        function copyMessageText(btn) {
+            const wrapper = btn.closest('.assistant-message-wrapper');
+            const bubble = wrapper.querySelector('.message-bubble.assistant');
+            if (bubble) {
+                copyToClipboardBridge(bubble.innerText, "Response copied");
+            }
+        }
+
+        function copyFullTranscript() {
+            if (!currentActiveChat) return;
+            const modelName = formatModelName(currentActiveChat.model);
+            let transcript = `Title: ${currentActiveChat.title}\nModel: ${modelName}\nDate: ${formatDate(currentActiveChat.createdAt)}\n\n`;
+            
+            if (Array.isArray(currentActiveChat.messages)) {
+                currentActiveChat.messages.forEach(msg => {
+                    const rawRole = (msg.role || msg.sender || msg.type || '').toLowerCase();
+                    const isUser = (rawRole === 'user' || rawRole === 'human' || rawRole === 'client' || rawRole === 'me');
+                    const roleLabel = isUser ? 'User' : modelName;
+                    const content = msg.content || msg.message || msg.text || '';
+                    transcript += `--- ${roleLabel} ---\n${content}\n\n`;
+                });
+            }
+            
+            copyToClipboardBridge(transcript, "Full transcript copied!");
+        }
+
+        function showDetails(chat) {
+            try {
+                if (!chat) return;
+                currentActiveChat = chat;
+                const msgs = Array.isArray(chat.messages) ? chat.messages : [];
+                
+                const titleEl = document.getElementById('detailsTitle');
+                if (titleEl) titleEl.innerText = chat.title || "Untitled Chat";
+                
+                const subtitleEl = document.getElementById('detailsSubtitle');
+                if (subtitleEl) subtitleEl.innerText = `${formatModelName(chat.model)} • ${msgs.length} messages`;
+
+                const container = document.getElementById('messagesContainer');
+                if (container) {
+                    container.innerHTML = '';
+
+                    const modelName = formatModelName(chat.model);
+
+                    msgs.forEach(msg => {
+                        if (!msg) return;
+                        const rawRole = (msg.role || msg.sender || msg.type || '').toLowerCase();
+                        const isUser = (rawRole === 'user' || rawRole === 'human' || rawRole === 'client' || rawRole === 'me');
+                        let content = msg.content || msg.message || msg.text || '';
+                        if (typeof content !== 'string') {
+                            if (content && typeof content === 'object' && content.text) {
+                                content = content.text;
+                            } else {
+                                content = String(content || '');
+                            }
+                        }
+
+                        if (isUser) {
+                            const userWrapper = document.createElement('div');
+                            userWrapper.className = 'user-message-container';
+                            
+                            const bubble = document.createElement('div');
+                            bubble.className = `message-bubble user`;
+                            bubble.innerHTML = formatMessageContent(content);
+                            
+                            const actionsHtml = `
+                                <div class="user-actions">
+                                    <button class="action-icon-btn" onclick="copyUserMessage(this)" title="Copy Prompt" aria-label="Copy Prompt">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    </button>
+                                </div>
+                            `;
+                            
+                            userWrapper.appendChild(bubble);
+                            const actDiv = document.createElement('div');
+                            actDiv.innerHTML = actionsHtml;
+                            if (actDiv.firstElementChild) {
+                                userWrapper.appendChild(actDiv.firstElementChild);
+                            }
+                            container.appendChild(userWrapper);
+                        } else {
+                            const assistantWrapper = document.createElement('div');
+                            assistantWrapper.className = 'assistant-message-wrapper';
+                            
+                            const headerHtml = `
+                                <div class="assistant-header">
+                                    <div class="assistant-avatar">
+                                        <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                                        </svg>
+                                    </div>
+                                    <span class="assistant-name">${escapeHTML(modelName)}</span>
+                                </div>
+                            `;
+                            
+                            const bubble = document.createElement('div');
+                            bubble.className = `message-bubble assistant`;
+                            bubble.innerHTML = formatMessageContent(content);
+                            
+                            const actionsHtml = `
+                                <div class="assistant-actions">
+                                    <button class="action-icon-btn" onclick="copyMessageText(this)" aria-label="Copy">
+                                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            `;
+                            
+                            assistantWrapper.innerHTML = headerHtml;
+                            assistantWrapper.appendChild(bubble);
+                            
+                            const actionsContainer = document.createElement('div');
+                            actionsContainer.innerHTML = actionsHtml;
+                            if (actionsContainer.firstElementChild) {
+                                assistantWrapper.appendChild(actionsContainer.firstElementChild);
+                            }
+                            
+                            container.appendChild(assistantWrapper);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Error in showDetails:", err);
+                alert("Error in showDetails: " + err.message + "\n" + err.stack);
+            }
+
+            const detailsComp = document.getElementById('chatDetailsContainer');
+            if (detailsComp) {
+                detailsComp.classList.add('active');
+            }
+            
             setTimeout(() => {
-                container.scrollTop = container.scrollHeight;
+                const container = document.getElementById('messagesContainer');
+                if (container) container.scrollTop = container.scrollHeight;
             }, 100);
         }
 
@@ -822,6 +1343,7 @@
             if (bridge && bridge.copyToClipboard) {
                 const text = document.getElementById('debugOutput').innerText;
                 bridge.copyToClipboard(text);
+                showToast("Debug JSON copied");
             }
         }
     </script>
