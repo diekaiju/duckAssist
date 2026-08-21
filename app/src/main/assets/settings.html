@@ -237,6 +237,27 @@
             border-color: var(--accent-color);
             box-shadow: 0 0 0 2px rgba(222, 88, 51, 0.2);
         }
+
+        /* Action button styles */
+        .action-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .action-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
     </style>
 </head>
 <body>
@@ -315,6 +336,16 @@
                 <label class="input-label" for="shared_doc_suffix">Shared Document AI Suffix</label>
                 <textarea id="shared_doc_suffix" placeholder="Optional prompt suffix for shared files (e.g. Summarize this document)"></textarea>
             </div>
+
+            <div class="section-title">Data & Privacy</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Saved Chats Viewer</div>
+                    <div class="setting-desc">Browse and view all your saved chat conversations offline.</div>
+                </div>
+                <button type="button" class="action-btn" onclick="openChatsViewer()">View</button>
+            </div>
         </form>
     </div>
 
@@ -383,6 +414,12 @@
         function cancel() {
             if (typeof AndroidSettings !== 'undefined' && AndroidSettings.dismissSettings) {
                 AndroidSettings.dismissSettings();
+            }
+        }
+
+        function openChatsViewer() {
+            if (typeof AndroidSettings !== 'undefined' && AndroidSettings.openChatsViewer) {
+                AndroidSettings.openChatsViewer();
             }
         }
     </script>

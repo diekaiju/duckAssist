@@ -59,6 +59,7 @@ import android.media.MediaScannerConnection;
 import android.os.StrictMode;
 
 import androidx.webkit.URLUtilCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import org.woheller69.freeDroidWarn.FreeDroidWarn;
 
@@ -68,6 +69,7 @@ import java.net.URLEncoder;
 public class MainActivity extends Activity {
 
     private WebView chatWebView;
+    private SwipeRefreshLayout swipeRefreshLayout;
     private float currentZoomLevel = 100f;
     private ProgressBar progressBar;
     private ValueCallback<Uri[]> mUploadMessage;
@@ -123,6 +125,17 @@ public class MainActivity extends Activity {
             "            });" +
             "        };" +
             "    }" +
+            "})();";
+
+    private final String SWIPE_SCROLL_JS = "(function() {" +
+            "    if (window.swipeScrollInjected) return;" +
+            "    window.swipeScrollInjected = true;" +
+            "    document.addEventListener('scroll', function(e) {" +
+            "        if (e.target && e.target.scrollTop !== undefined) {" +
+            "            var isAtTop = e.target.scrollTop === 0;" +
+            "            Android.setSwipeEnabled(isAtTop);" +
+            "        }" +
+            "    }, true);" +
             "})();";
 
     private final String VOICE_JS = "(function() {" +
@@ -300,6 +313,84 @@ public class MainActivity extends Activity {
             "  }" +
             "})();";
 
+    private String lastFetchedChatsJson = "{}";
+    private android.app.Dialog chatsViewerDialog = null;
+    private boolean isRequestingViewer = false;
+
+    private final String DUMP_CHATS_JS = "(function() {" +
+            "  if (!window.indexedDB) {" +
+            "    Android.onChatsFetched(JSON.stringify({error: 'IndexedDB not supported'}));" +
+            "    return;" +
+            "  }" +
+            "  if (!window.indexedDB.databases) {" +
+            "    Android.onChatsFetched(JSON.stringify({error: 'databases() not supported'}));" +
+            "    return;" +
+            "  }" +
+            "  window.indexedDB.databases().then(async (dbs) => {" +
+            "    let result = {};" +
+            "    for (let dbInfo of dbs) {" +
+            "      let dbName = dbInfo.name;" +
+            "      result[dbName] = await new Promise((resolve) => {" +
+            "        let req = window.indexedDB.open(dbName);" +
+            "        req.onerror = () => resolve({error: 'failed to open'});" +
+            "        req.onsuccess = (e) => {" +
+            "          let db = e.target.result;" +
+            "          let storeNames = Array.from(db.objectStoreNames);" +
+            "          if (storeNames.length === 0) {" +
+            "            db.close();" +
+            "            resolve({});" +
+            "            return;" +
+            "          }" +
+            "          let dbData = {};" +
+            "          let completed = 0;" +
+            "          storeNames.forEach((storeName) => {" +
+            "            try {" +
+            "              let tx = db.transaction(storeName, 'readonly');" +
+            "              let store = tx.objectStore(storeName);" +
+            "              let getAllReq = store.getAll();" +
+            "              tx.oncomplete = () => {" +
+            "                completed++;" +
+            "                if (completed === storeNames.length) {" +
+            "                  db.close();" +
+            "                  resolve(dbData);" +
+            "                }" +
+            "              };" +
+            "              tx.onerror = () => {" +
+            "                completed++;" +
+            "                if (completed === storeNames.length) {" +
+            "                  db.close();" +
+            "                  resolve(dbData);" +
+            "                }" +
+            "              };" +
+            "              getAllReq.onsuccess = () => {" +
+            "                dbData[storeName] = getAllReq.result;" +
+            "              };" +
+            "            } catch (err) {" +
+            "              completed++;" +
+            "              dbData[storeName] = {error: err.toString()};" +
+            "              if (completed === storeNames.length) {" +
+            "                db.close();" +
+            "                resolve(dbData);" +
+            "              }" +
+            "            }" +
+            "          });" +
+            "        };" +
+            "      });" +
+            "    }" +
+            "    let localData = {};" +
+            "    for (let i = 0; i < localStorage.length; i++) {" +
+            "      let key = localStorage.key(i);" +
+            "      localData[key] = localStorage.getItem(key);" +
+            "    }" +
+            "    Android.onChatsFetched(JSON.stringify({" +
+            "      indexedDB: result," +
+            "      localStorage: localData" +
+            "    }));" +
+            "  }).catch(err => {" +
+            "    Android.onChatsFetched(JSON.stringify({error: err.toString()}));" +
+            "  });" +
+            "})();";
+
     private void clearCacheData() {
         if (chatWebView != null) {
             chatWebView.clearCache(true);
@@ -351,6 +442,15 @@ public class MainActivity extends Activity {
 
         progressBar = findViewById(R.id.progressBar);
         chatWebView = findViewById(R.id.chatWebView);
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            chatWebView.reload();
+        });
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            chatWebView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+                swipeRefreshLayout.setEnabled(scrollY == 0);
+            });
+        }
 
         WebSettings webSettings = chatWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
@@ -372,6 +472,7 @@ public class MainActivity extends Activity {
         webSettings.setGeolocationEnabled(false);
 
         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+        lastFetchedChatsJson = prefs.getString("cached_chats_json", "{}");
         int savedZoom = prefs.getInt("text_zoom", 100);
         currentZoomLevel = (float) savedZoom;
         webSettings.setTextZoom(savedZoom);
@@ -485,8 +586,33 @@ public class MainActivity extends Activity {
     }
 
     @JavascriptInterface
+    public String getChatsJson() {
+        return lastFetchedChatsJson;
+    }
+
+    @JavascriptInterface
+    public void dismissViewer() {
+        runOnUiThread(() -> {
+            if (chatsViewerDialog != null && chatsViewerDialog.isShowing()) {
+                chatsViewerDialog.dismiss();
+            } else {
+                chatWebView.loadUrl("https://duck.ai/");
+            }
+        });
+    }
+
+    @JavascriptInterface
     public void onContinueLastChatSuccess() {
         runOnUiThread(() -> pendingContinueLastChat = false);
+    }
+
+    @JavascriptInterface
+    public void setSwipeEnabled(final boolean enabled) {
+        runOnUiThread(() -> {
+            if (swipeRefreshLayout != null) {
+                swipeRefreshLayout.setEnabled(enabled);
+            }
+        });
     }
 
     @JavascriptInterface
@@ -589,6 +715,14 @@ public class MainActivity extends Activity {
                 public void dismissSettings() {
                     runOnUiThread(() -> dialog.dismiss());
                 }
+
+                @JavascriptInterface
+                public void openChatsViewer() {
+                    runOnUiThread(() -> {
+                        dialog.dismiss();
+                        fetchChatsAndShowViewer();
+                    });
+                }
             }, "AndroidSettings");
 
             webView.loadUrl("file:///android_asset/settings.html");
@@ -597,6 +731,86 @@ public class MainActivity extends Activity {
             dialog.show();
             
             Window window = dialog.getWindow();
+            if (window != null) {
+                window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+                window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public void onChatsFetched(String jsonStr) {
+        runOnUiThread(() -> {
+            lastFetchedChatsJson = jsonStr;
+            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            prefs.edit().putString("cached_chats_json", jsonStr).apply();
+            if (isRequestingViewer) {
+                isRequestingViewer = false;
+                showChatsViewerDialog();
+            }
+        });
+    }
+
+    private void fetchChatsAndShowViewer() {
+        runOnUiThread(() -> {
+            isRequestingViewer = true;
+            String currentUrl = chatWebView.getUrl();
+            if (currentUrl == null || (!currentUrl.startsWith("https://duck.ai") && !currentUrl.startsWith("https://duckduckgo.com"))) {
+                Toast.makeText(MainActivity.this, "Initializing chat storage connection...", Toast.LENGTH_LONG).show();
+                chatWebView.loadUrl("https://duck.ai/");
+            }
+            chatWebView.evaluateJavascript(DUMP_CHATS_JS, null);
+        });
+    }
+
+    private void showChatsViewerDialog() {
+        runOnUiThread(() -> {
+            if (chatsViewerDialog != null && chatsViewerDialog.isShowing()) {
+                chatsViewerDialog.dismiss();
+            }
+            chatsViewerDialog = new android.app.Dialog(MainActivity.this);
+            chatsViewerDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            
+            WebView webView = new WebView(MainActivity.this);
+            WebSettings ws = webView.getSettings();
+            ws.setJavaScriptEnabled(true);
+            ws.setDomStorageEnabled(true);
+            ws.setAllowFileAccess(false);
+            ws.setAllowContentAccess(false);
+            
+            webView.addJavascriptInterface(new Object() {
+                @JavascriptInterface
+                public String getChatsJson() {
+                    return lastFetchedChatsJson;
+                }
+                
+                @JavascriptInterface
+                public void dismissViewer() {
+                    runOnUiThread(() -> {
+                        if (chatsViewerDialog != null) {
+                            chatsViewerDialog.dismiss();
+                        }
+                    });
+                }
+
+                @JavascriptInterface
+                public void copyToClipboard(String text) {
+                    runOnUiThread(() -> {
+                        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        ClipData clip = ClipData.newPlainText("Copied JSON", text);
+                        if (clipboard != null) {
+                            clipboard.setPrimaryClip(clip);
+                            Toast.makeText(MainActivity.this, "Copied debug info to clipboard!", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            }, "AndroidChatsViewer");
+            
+            webView.loadUrl("file:///android_asset/chats_viewer.html");
+            chatsViewerDialog.setContentView(webView);
+            chatsViewerDialog.show();
+            
+            Window window = chatsViewerDialog.getWindow();
             if (window != null) {
                 window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
                 window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
@@ -843,7 +1057,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
-        //clearCacheData();
+        runOnUiThread(() -> {
+            if (chatWebView != null && chatWebView.getUrl() != null && chatWebView.getUrl().startsWith("https://duck")) {
+                chatWebView.evaluateJavascript(DUMP_CHATS_JS, null);
+            }
+        });
     }
 
     @Override
@@ -1031,17 +1249,26 @@ public class MainActivity extends Activity {
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
             progressBar.setVisibility(View.VISIBLE);
+            if (swipeRefreshLayout != null) {
+                swipeRefreshLayout.setEnabled(!url.startsWith("file:///android_asset/"));
+            }
             view.evaluateJavascript(BLOB_JS, null);
             view.evaluateJavascript(CLIPBOARD_JS, null);
+            view.evaluateJavascript(SWIPE_SCROLL_JS, null);
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
             progressBar.setVisibility(View.GONE);
+            swipeRefreshLayout.setRefreshing(false);
+            if (swipeRefreshLayout != null) {
+                swipeRefreshLayout.setEnabled(!url.startsWith("file:///android_asset/"));
+            }
             view.evaluateJavascript(BLOB_JS, null);
             view.evaluateJavascript(CLIPBOARD_JS, null);
             view.evaluateJavascript(SETTINGS_INJECT_JS, null);
+            view.evaluateJavascript(SWIPE_SCROLL_JS, null);
             if (pendingContinueLastChat) {
                 view.evaluateJavascript(CONTINUE_CHAT_JS, null);
             }
@@ -1054,6 +1281,35 @@ public class MainActivity extends Activity {
                 pendingVoiceChat = false;
             }
         }
+
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, android.webkit.WebResourceError error) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (request.isForMainFrame()) {
+                    String url = request.getUrl().toString();
+                    if (url.contains("duck.ai") || url.contains("duckduckgo.com")) {
+                        Log.d(TAG, "Connection failed for main frame, replacing with local chats: " + error.getDescription());
+                        runOnUiThread(() -> {
+                            view.loadUrl("file:///android_asset/chats_viewer.html");
+                        });
+                        return; // Prevent calling super, which displays the default "Webpage not available" error page
+                    }
+                }
+            }
+            super.onReceivedError(view, request, error);
+        }
+
+        @Override
+        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+            if (failingUrl.contains("duck.ai") || failingUrl.contains("duckduckgo.com")) {
+                Log.d(TAG, "Connection failed (legacy), replacing with local chats: " + description);
+                runOnUiThread(() -> {
+                    view.loadUrl("file:///android_asset/chats_viewer.html");
+                });
+                return; // Prevent calling super
+            }
+            super.onReceivedError(view, errorCode, description, failingUrl);
+        }
     }
 
     private class MyWebChromeClient extends WebChromeClient {
@@ -1064,6 +1320,7 @@ public class MainActivity extends Activity {
                 view.evaluateJavascript(BLOB_JS, null);
                 view.evaluateJavascript(CLIPBOARD_JS, null);
                 view.evaluateJavascript(SETTINGS_INJECT_JS, null);
+                view.evaluateJavascript(SWIPE_SCROLL_JS, null);
             }
         }
 

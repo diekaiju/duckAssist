@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Chats</title>
+    <style>
+        :root {
+            --bg-color: #16171a;
+            --card-bg: #212226;
+            --accent-color: #de5833;
+            --accent-hover: #e06948;
+            --text-primary: #f5f6f7;
+            --text-secondary: #9fa2a6;
+            --border-color: #2c2d30;
+            --bubble-user: #de5833;
+            --bubble-ai: #2c2d30;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-color: #f7f7f7;
+                --card-bg: #ffffff;
+                --accent-color: #de5833;
+                --accent-hover: #e06948;
+                --text-primary: #222222;
+                --text-secondary: #656565;
+                --border-color: #e5e5e5;
+                --bubble-user: #de5833;
+                --bubble-ai: #f0f0f0;
+            }
+        }
+
+        .action-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .action-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 16px;
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+            width: 38px;
+            height: 38px;
+        }
+
+        .back-btn:hover {
+            background-color: var(--border-color);
+        }
+
+        h1 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Sidebar / Chat list list view */
+        .chat-list-container {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            background-color: var(--bg-color);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chat-item {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .chat-item:hover {
+            background-color: var(--card-bg);
+        }
+
+        .chat-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-title {
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 75%;
+        }
+
+        .chat-date {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .chat-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .chat-model {
+            background-color: var(--border-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+
+        .chat-preview {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Details view for active chat */
+        .chat-details-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            z-index: 5;
+        }
+
+        .chat-details-container.active {
+            transform: translateX(0);
+        }
+
+        .details-header {
+            padding: 12px 16px;
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .details-title-container {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .details-title {
+            font-weight: 600;
+            font-size: 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .details-subtitle {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14.5px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message-bubble.user {
+            background-color: var(--bubble-user);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-bubble.assistant {
+            background-color: var(--bubble-ai);
+            color: var(--text-primary);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 80%;
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 24px;
+            gap: 12px;
+        }
+
+        .empty-icon {
+            width: 48px;
+            height: 48px;
+            opacity: 0.5;
+            color: var(--accent-color);
+        }
+
+        /* Markdown-ish formatting in assistant bubble */
+        .message-bubble.assistant p {
+            margin-bottom: 8px;
+        }
+        .message-bubble.assistant p:last-child {
+            margin-bottom: 0;
+        }
+        .message-bubble.assistant pre {
+            background-color: rgba(0,0,0,0.15);
+            padding: 8px;
+            border-radius: 6px;
+            font-family: monospace;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        .message-bubble.assistant code {
+            font-family: monospace;
+            background-color: rgba(0,0,0,0.08);
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        /* Markdown tables & links styling */
+        .markdown-table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 12px 0;
+            font-size: 13px;
+        }
+        .markdown-table th, .markdown-table td {
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .markdown-table th {
+            background-color: var(--card-bg);
+            font-weight: 600;
+        }
+        .message-bubble a {
+            color: #58a6ff;
+            text-decoration: underline;
+        }
+        .message-bubble.user a {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-left">
+            <button type="button" class="back-btn" onclick="closeViewer()" aria-label="Back">
+                <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            <h1 onclick="toggleDebug()" style="cursor: pointer;">Saved Chats</h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- List View -->
+        <div class="chat-list-container" id="chatListContainer">
+            <div class="empty-state" id="emptyState">
+                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <p>No offline chats found.</p>
+                <p style="font-size: 12px;">Make sure you have started a chat with duck.ai.</p>
+            </div>
+            <div id="chatList"></div>
+            <div id="debugContainer" style="display:none; margin:10px;">
+                <button type="button" class="action-btn" style="width:100%; margin-bottom:8px;" onclick="copyDebugInfo()">Copy Debug JSON</button>
+                <pre id="debugOutput" style="font-family:monospace; font-size:10px; overflow:auto; max-height:300px; background:#000; color:#0f0; padding:10px; border-radius:8px; border:1px solid #333; white-space:pre-wrap; word-break:break-all;"></pre>
+            </div>
+        </div>
+
+        <!-- Details View -->
+        <div class="chat-details-container" id="chatDetailsContainer">
+            <div class="details-header">
+                <button type="button" class="back-btn" onclick="hideDetails()" aria-label="Back to List">
+                    <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                </button>
+                <div class="details-title-container">
+                    <div class="details-title" id="detailsTitle">Chat Details</div>
+                    <div class="details-subtitle" id="detailsSubtitle">Model Info</div>
+                </div>
+            </div>
+            <div class="messages-container" id="messagesContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let allChats = [];
+        let debugVisible = false;
+
+        function toggleDebug() {
+            const dbg = document.getElementById('debugContainer');
+            debugVisible = !debugVisible;
+            dbg.style.display = debugVisible ? 'block' : 'none';
+        }
+
+        function copyDebugInfo() {
+            if (typeof AndroidChatsViewer !== 'undefined' && AndroidChatsViewer.copyToClipboard) {
+                const text = document.getElementById('debugOutput').innerText;
+                AndroidChatsViewer.copyToClipboard(text);
+            }
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return "";
+            const date = new Date(timestamp);
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function escapeHTML(str) {
+            if (!str) return "";
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        function formatMessageContent(content) {
+            if (!content) return "";
+            
+            const codeBlocks = [];
+            let html = content;
+            
+            // 1. Extract and escape code blocks
+            html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+                codeBlocks.push(`<pre class="code-block"><code class="${lang}">${escapeHTML(code.trim())}</code></pre>`);
+                return id;
+            });
+            
+            // 2. Extract inline code
+            html = html.replace(/`([^`\n]+)`/g, (match, code) => {
+                const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+                codeBlocks.push(`<code>${escapeHTML(code)}</code>`);
+                return id;
+            });
+            
+            // Escape HTML for safety, preserving tokens
+            html = escapeHTML(html);
+            
+            // 3. Headers
+            html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+            html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+            html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+            
+            // 4. Bold & Italic
+            html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+            html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+            html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+            
+            // 5. Links
+            html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+            // 6. Tables
+            const lines = html.split('\n');
+            let inTable = false;
+            let tableHTML = '';
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('|') && line.endsWith('|')) {
+                    if (!inTable) {
+                        inTable = true;
+                        tableHTML += '<table class="markdown-table">';
+                    }
+                    
+                    // Skip table column format headers (e.g. |---|:---|)
+                    if (line.match(/^[|:\s-]+$/)) {
+                        continue; 
+                    }
+                    
+                    const cells = line.split('|').slice(1, -1);
+                    tableHTML += '<tr>';
+                    cells.forEach(cell => {
+                        const tag = (tableHTML.match(/<tr>/g) || []).length === 1 ? 'th' : 'td';
+                        tableHTML += `<${tag}>${cell.trim()}</${tag}>`;
+                    });
+                    tableHTML += '</tr>';
+                } else {
+                    if (inTable) {
+                        inTable = false;
+                        tableHTML += '</table>';
+                        lines[i] = tableHTML + '\n' + lines[i];
+                        tableHTML = '';
+                    }
+                }
+            }
+            if (inTable) {
+                tableHTML += '</table>';
+                lines.push(tableHTML);
+            }
+            html = lines.join('\n');
+            html = html.replace(/<tr><\/tr>/g, '');
+
+            // 7. Lists
+            html = html.replace(/^\s*[\-\*]\s+(.*$)/gim, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
+            html = html.replace(/<\/ul>\s*<ul>/g, '');
+
+            // 8. Paragraphs
+            const paragraphs = html.split('\n').map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return '';
+                if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed.startsWith('<table') || trimmed.startsWith('<tr') || trimmed.startsWith('<td') || trimmed.startsWith('<th') || trimmed.startsWith('__CODE_BLOCK_')) {
+                    return line;
+                }
+                return `<p>${line}</p>`;
+            }).filter(line => line !== '');
+            
+            html = paragraphs.join('\n');
+
+            // 9. Restore code blocks
+            codeBlocks.forEach((block, index) => {
+                html = html.replace(`__CODE_BLOCK_${index}__`, block);
+            });
+            
+            return html;
+        }
+
+        function extractChats(dumpData) {
+            if (document.getElementById('debugOutput')) {
+                document.getElementById('debugOutput').innerText = JSON.stringify(dumpData, null, 2);
+            }
+            let chats = [];
+            let allMessages = [];
+            let conversationsMetadata = [];
+
+            function getMessageContent(m) {
+                if (!m) return '';
+                
+                // If content is an object (e.g. holds file attachment text)
+                let baseContent = m.content || m.message || m.text || m.body || '';
+                if (baseContent && typeof baseContent === 'object') {
+                    baseContent = baseContent.text || baseContent.content || baseContent.message || '';
+                }
+                
+                // If text is split into parts array (typical for Duck.ai responses)
+                if (Array.isArray(m.parts)) {
+                    const partsText = m.parts
+                        .filter(p => p && p.text)
+                        .map(p => p.text)
+                        .join('');
+                    if (partsText) return partsText;
+                }
+                return baseContent;
+            }
+
+            function mapTurnsArray(rawArray) {
+                const mapped = [];
+                if (!Array.isArray(rawArray)) return mapped;
+                rawArray.forEach(m => {
+                    if (!m) return;
+                    const req = m.request || m.prompt || m.query || m.question;
+                    const res = m.response || m.answer || m.reply;
+                    if (req || res) {
+                        if (req) mapped.push({ role: 'user', content: getMessageContent(req) });
+                        if (res) mapped.push({ role: 'assistant', content: getMessageContent(res) });
+                    } else {
+                        const rawRole = (m.role || m.sender || m.type || '').toLowerCase();
+                        const isUser = (rawRole === 'user' || rawRole === 'human' || rawRole === 'client' || rawRole === 'me');
+                        const content = getMessageContent(m);
+                        if (content) {
+                            mapped.push({
+                                role: isUser ? 'user' : 'assistant',
+                                content: content
+                            });
+                        }
+                    }
+                });
+                return mapped;
+            }
+
+            // Traverse IndexedDB
+            if (dumpData.indexedDB) {
+                for (let dbName in dumpData.indexedDB) {
+                    let db = dumpData.indexedDB[dbName];
+                    for (let storeName in db) {
+                        let items = db[storeName];
+                        if (Array.isArray(items)) {
+                            // If this store seems to contain individual messages
+                            if (storeName.toLowerCase().includes('message')) {
+                                allMessages = allMessages.concat(items);
+                            } else {
+                                // Assume it could be conversations metadata
+                                items.forEach(item => {
+                                    if (item && typeof item === 'object') {
+                                        const rawMsgs = item.messages || item.turns || item.list || item.history;
+                                        // If it already has nested messages/turns, extract it directly
+                                        if (Array.isArray(rawMsgs)) {
+                                            chats.push({
+                                                id: item.id || item.uuid || item.chatId || Math.random().toString(),
+                                                title: item.title || item.name || "Untitled Chat",
+                                                messages: mapTurnsArray(rawMsgs),
+                                                model: item.model || "",
+                                                createdAt: item.createdAt || item.updatedAt || item.timestamp || null
+                                            });
+                                        } else {
+                                            // Save metadata for relational reconstruction
+                                            conversationsMetadata.push(item);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Traverse localStorage
+            if (dumpData.localStorage) {
+                for (let key in dumpData.localStorage) {
+                    try {
+                        let val = JSON.parse(dumpData.localStorage[key]);
+                        if (val && typeof val === 'object') {
+                            const rawMsgs = val.messages || val.turns || val.list || val.history;
+                            if (Array.isArray(rawMsgs)) {
+                                chats.push({
+                                    id: val.id || val.uuid || val.chatId || key,
+                                    title: val.title || val.name || "Untitled Chat",
+                                    messages: mapTurnsArray(rawMsgs),
+                                    model: val.model || "",
+                                    createdAt: val.createdAt || null
+                                });
+                            }
+                        } else if (Array.isArray(val)) {
+                            val.forEach(item => {
+                                if (item && typeof item === 'object') {
+                                    const rawMsgs = item.messages || item.turns || item.list || item.history;
+                                    if (Array.isArray(rawMsgs)) {
+                                        chats.push({
+                                            id: item.id || item.uuid || item.chatId || Math.random().toString(),
+                                            title: item.title || item.name || "Untitled Chat",
+                                            messages: mapTurnsArray(rawMsgs),
+                                            model: item.model || "",
+                                            createdAt: item.createdAt || null
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    } catch(e) {}
+                }
+            }
+            
+            // If we found separate messages, let's group them by sessionId/conversationId/threadId
+            if (allMessages.length > 0 && conversationsMetadata.length > 0) {
+                // Group messages by session reference
+                const messagesBySession = {};
+                allMessages.forEach(msg => {
+                    if (msg && typeof msg === 'object') {
+                        const sessId = msg.sessionId || msg.conversationId || msg.threadId || msg.chatId;
+                        if (sessId) {
+                            if (!messagesBySession[sessId]) {
+                                messagesBySession[sessId] = [];
+                            }
+                            messagesBySession[sessId].push(msg);
+                        }
+                    }
+                });
+
+                // Reconstruct chats using metadata
+                conversationsMetadata.forEach(meta => {
+                    const id = meta.id || meta.uuid || meta.chatId;
+                    // Skip __metadata__ node
+                    if (id && id !== '__metadata__') {
+                        const msgs = messagesBySession[id] || [];
+                        // Sort messages by timestamp if available
+                        msgs.sort((a, b) => (a.timestamp || a.createdAt || 0) - (b.timestamp || b.createdAt || 0));
+                        
+                        const mappedMsgs = mapTurnsArray(msgs);
+
+                        if (mappedMsgs.length > 0) {
+                            chats.push({
+                                id: id,
+                                title: meta.title || meta.name || meta.prompt || (mappedMsgs[0] ? mappedMsgs[0].content : "Untitled Chat"),
+                                messages: mappedMsgs,
+                                model: meta.model || "",
+                                createdAt: meta.createdAt || meta.updatedAt || meta.timestamp || null
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Filter duplicates
+            const seenIds = new Set();
+            const uniqueChats = [];
+            chats.forEach(c => {
+                if (c.id && !seenIds.has(c.id)) {
+                    seenIds.add(c.id);
+                    uniqueChats.push(c);
+                }
+            });
+
+            // Sort chats by createdAt descending
+            uniqueChats.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            return uniqueChats;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const bridge = (typeof AndroidChatsViewer !== 'undefined') ? AndroidChatsViewer : (typeof Android !== 'undefined' ? Android : null);
+            if (bridge && bridge.getChatsJson) {
+                try {
+                    const rawJson = bridge.getChatsJson();
+                    const dumpData = JSON.parse(rawJson);
+                    allChats = extractChats(dumpData);
+                    renderChatList();
+                } catch(e) {
+                    console.error("Error parsing chats:", e);
+                }
+            }
+        });
+
+        function renderChatList() {
+            const listEl = document.getElementById('chatList');
+            const emptyEl = document.getElementById('emptyState');
+            listEl.innerHTML = '';
+
+            if (allChats.length === 0) {
+                emptyEl.style.display = 'flex';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            allChats.forEach(chat => {
+                const item = document.createElement('div');
+                item.className = 'chat-item';
+                item.onclick = () => showDetails(chat);
+
+                const lastMsg = chat.messages[chat.messages.length - 1];
+                const previewText = lastMsg ? (lastMsg.content || lastMsg.message || lastMsg.text || "No text") : "No messages";
+
+                item.innerHTML = `
+                    <div class="chat-item-header">
+                        <span class="chat-title">${escapeHTML(chat.title)}</span>
+                        <span class="chat-date">${formatDate(chat.createdAt)}</span>
+                    </div>
+                    <div class="chat-preview">${escapeHTML(previewText)}</div>
+                    <div class="chat-meta">
+                        <span class="chat-model">${escapeHTML(chat.model || "Duck.ai Model")}</span>
+                        <span>${chat.messages.length} messages</span>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function showDetails(chat) {
+            document.getElementById('detailsTitle').innerText = chat.title || "Untitled Chat";
+            document.getElementById('detailsSubtitle').innerText = `${chat.model || "Duck.ai"} • ${chat.messages.length} messages`;
+
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+
+            chat.messages.forEach(msg => {
+                const bubble = document.createElement('div');
+                
+                // Get role dynamically
+                const rawRole = (msg.role || msg.sender || msg.type || '').toLowerCase();
+                const isUser = (rawRole === 'user' || rawRole === 'human' || rawRole === 'client' || rawRole === 'me');
+                const role = isUser ? 'user' : 'assistant';
+                
+                // Get content dynamically
+                const content = msg.content || msg.message || msg.text || msg.body || '';
+
+                if (content) {
+                    bubble.className = `message-bubble ${role}`;
+                    bubble.innerHTML = formatMessageContent(content);
+                    container.appendChild(bubble);
+                }
+            });
+
+            document.getElementById('chatDetailsContainer').classList.add('active');
+            // Scroll to bottom
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 100);
+        }
+
+        function hideDetails() {
+            document.getElementById('chatDetailsContainer').classList.remove('active');
+        }
+
+        function closeViewer() {
+            const bridge = (typeof AndroidChatsViewer !== 'undefined') ? AndroidChatsViewer : (typeof Android !== 'undefined' ? Android : null);
+            if (bridge && bridge.dismissViewer) {
+                bridge.dismissViewer();
+            }
+        }
+        
+        function copyDebugInfo() {
+            const bridge = (typeof AndroidChatsViewer !== 'undefined') ? AndroidChatsViewer : (typeof Android !== 'undefined' ? Android : null);
+            if (bridge && bridge.copyToClipboard) {
+                const text = document.getElementById('debugOutput').innerText;
+                bridge.copyToClipboard(text);
+            }
+        }
+    </script>
+</body>
+</html>
