@@ -278,14 +278,14 @@
             color: var(--accent-color);
         }
 
-        /* Markdown-ish formatting in assistant bubble */
-        .message-bubble.assistant p {
+        /* Markdown formatting in message bubbles */
+        .message-bubble p {
             margin-bottom: 8px;
         }
-        .message-bubble.assistant p:last-child {
+        .message-bubble p:last-child {
             margin-bottom: 0;
         }
-        .message-bubble.assistant pre {
+        .message-bubble pre {
             background-color: rgba(0,0,0,0.15);
             padding: 8px;
             border-radius: 6px;
@@ -293,13 +293,21 @@
             overflow-x: auto;
             margin: 8px 0;
             font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
-        .message-bubble.assistant code {
+        .message-bubble.user pre {
+            background-color: rgba(255,255,255,0.2);
+        }
+        .message-bubble code {
             font-family: monospace;
             background-color: rgba(0,0,0,0.08);
             padding: 2px 4px;
             border-radius: 4px;
             font-size: 13px;
+        }
+        .message-bubble.user code {
+            background-color: rgba(255,255,255,0.15);
         }
 
         /* Markdown tables & links styling */
@@ -412,9 +420,9 @@
             let html = content;
             
             // 1. Extract and escape code blocks
-            html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            html = html.replace(/```(\w*)?[\s\n]*([\s\S]*?)```/g, (match, lang, code) => {
                 const id = `__CODE_BLOCK_${codeBlocks.length}__`;
-                codeBlocks.push(`<pre class="code-block"><code class="${lang}">${escapeHTML(code.trim())}</code></pre>`);
+                codeBlocks.push(`<pre class="code-block"><code class="${lang || ''}">${escapeHTML(code.trim())}</code></pre>`);
                 return id;
             });
             
@@ -458,6 +466,7 @@
                     
                     // Skip table column format headers (e.g. |---|:---|)
                     if (line.match(/^[|:\s-]+$/)) {
+                        lines[i] = ''; 
                         continue; 
                     }
                     
@@ -468,6 +477,7 @@
                         tableHTML += `<${tag}>${cell.trim()}</${tag}>`;
                     });
                     tableHTML += '</tr>';
+                    lines[i] = '';
                 } else {
                     if (inTable) {
                         inTable = false;
@@ -481,19 +491,46 @@
                 tableHTML += '</table>';
                 lines.push(tableHTML);
             }
-            html = lines.join('\n');
-            html = html.replace(/<tr><\/tr>/g, '');
+            html = lines.filter(l => l !== '').join('\n');
 
             // 7. Lists
             html = html.replace(/^\s*[\-\*]\s+(.*$)/gim, '<li>$1</li>');
-            html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>');
-            html = html.replace(/<\/ul>\s*<ul>/g, '');
+            html = html.replace(/^\s*\d+\.\s+(.*$)/gim, '<li>$1</li>');
+            
+            const listLines = html.split('\n');
+            const processedListLines = [];
+            let inList = false;
+            
+            listLines.forEach(line => {
+                const trimmed = line.trim();
+                const isListItem = trimmed.startsWith('<li>') && trimmed.endsWith('</li>');
+                if (isListItem) {
+                    if (!inList) {
+                        inList = true;
+                        processedListLines.push('<ul>');
+                    }
+                    processedListLines.push(line);
+                } else {
+                    if (inList) {
+                        inList = false;
+                        processedListLines.push('</ul>');
+                    }
+                    processedListLines.push(line);
+                }
+            });
+            if (inList) {
+                processedListLines.push('</ul>');
+            }
+            html = processedListLines.join('\n');
 
             // 8. Paragraphs
             const paragraphs = html.split('\n').map(line => {
                 const trimmed = line.trim();
                 if (!trimmed) return '';
-                if (trimmed.startsWith('<h') || trimmed.startsWith('<ul') || trimmed.startsWith('<li') || trimmed.startsWith('<table') || trimmed.startsWith('<tr') || trimmed.startsWith('<td') || trimmed.startsWith('<th') || trimmed.startsWith('__CODE_BLOCK_')) {
+                if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+                    return line;
+                }
+                if (trimmed.startsWith('__CODE_BLOCK_')) {
                     return line;
                 }
                 return `<p>${line}</p>`;
