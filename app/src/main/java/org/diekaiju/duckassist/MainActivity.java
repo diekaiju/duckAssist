@@ -57,6 +57,8 @@ import android.app.PendingIntent;
 import android.content.SharedPreferences;
 import android.media.MediaScannerConnection;
 import android.os.StrictMode;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.webkit.URLUtilCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -69,7 +71,6 @@ import java.net.URLEncoder;
 public class MainActivity extends Activity {
 
     private WebView chatWebView;
-    private SwipeRefreshLayout swipeRefreshLayout;
     private float currentZoomLevel = 100f;
     private ProgressBar progressBar;
     private ValueCallback<Uri[]> mUploadMessage;
@@ -317,6 +318,17 @@ public class MainActivity extends Activity {
     private android.app.Dialog chatsViewerDialog = null;
     private boolean isRequestingViewer = false;
 
+    private final Handler syncHandler = new Handler(Looper.getMainLooper());
+    private final Runnable syncRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (chatWebView != null && chatWebView.getUrl() != null && chatWebView.getUrl().startsWith("https://duck")) {
+                chatWebView.evaluateJavascript(DUMP_CHATS_JS, null);
+            }
+            syncHandler.postDelayed(this, 10000);
+        }
+    };
+
     private final String DUMP_CHATS_JS = "(function() {" +
             "  function dump() {" +
             "    let knownDbs = ['savedAIChatData', 'duck-ai-chats', 'saved-chats', 'aiChatData'];" +
@@ -447,15 +459,6 @@ public class MainActivity extends Activity {
 
         progressBar = findViewById(R.id.progressBar);
         chatWebView = findViewById(R.id.chatWebView);
-        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
-        swipeRefreshLayout.setOnRefreshListener(() -> {
-            chatWebView.reload();
-        });
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            chatWebView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
-                swipeRefreshLayout.setEnabled(scrollY == 0);
-            });
-        }
 
         WebSettings webSettings = chatWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
@@ -605,12 +608,7 @@ public class MainActivity extends Activity {
             if (chatsViewerDialog != null && chatsViewerDialog.isShowing()) {
                 chatsViewerDialog.dismiss();
             } else {
-                String currentUrl = chatWebView.getUrl();
-                if (currentUrl != null && currentUrl.startsWith("file:///android_asset/")) {
-                    finish();
-                } else {
-                    chatWebView.loadUrl("https://duck.ai/");
-                }
+                chatWebView.loadUrl("https://duck.ai/");
             }
         });
     }
@@ -622,11 +620,7 @@ public class MainActivity extends Activity {
 
     @JavascriptInterface
     public void setSwipeEnabled(final boolean enabled) {
-        runOnUiThread(() -> {
-            if (swipeRefreshLayout != null) {
-                swipeRefreshLayout.setEnabled(enabled);
-            }
-        });
+        // No-op
     }
 
     @JavascriptInterface
@@ -755,8 +749,17 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void onChatsFetched(String jsonStr) {
         runOnUiThread(() -> {
-            if (jsonStr == null || jsonStr.isEmpty() || jsonStr.contains("\"error\"") || jsonStr.equals("{}")) {
-                Log.w(TAG, "Fetched chats empty or contain error, skipping overwrite: " + jsonStr);
+            if (jsonStr == null || jsonStr.isEmpty() || jsonStr.equals("{}")) {
+                return;
+            }
+            try {
+                org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+                if (obj.has("error")) {
+                    Log.w(TAG, "Fetched chats root contains error, skipping overwrite: " + obj.getString("error"));
+                    return;
+                }
+            } catch (org.json.JSONException e) {
+                Log.w(TAG, "Fetched chats is not a valid JSON object, skipping overwrite");
                 return;
             }
             lastFetchedChatsJson = jsonStr;
@@ -771,13 +774,11 @@ public class MainActivity extends Activity {
 
     private void fetchChatsAndShowViewer() {
         runOnUiThread(() -> {
-            isRequestingViewer = true;
+            showChatsViewerDialog();
             String currentUrl = chatWebView.getUrl();
-            if (currentUrl == null || (!currentUrl.startsWith("https://duck.ai") && !currentUrl.startsWith("https://duckduckgo.com"))) {
-                Toast.makeText(MainActivity.this, "Initializing chat storage connection...", Toast.LENGTH_LONG).show();
-                chatWebView.loadUrl("https://duck.ai/");
+            if (currentUrl != null && (currentUrl.startsWith("https://duck.ai") || currentUrl.startsWith("https://duckduckgo.com"))) {
+                chatWebView.evaluateJavascript(DUMP_CHATS_JS, null);
             }
-            chatWebView.evaluateJavascript(DUMP_CHATS_JS, null);
         });
     }
 
@@ -1073,6 +1074,18 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        syncHandler.post(syncRunnable);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        syncHandler.removeCallbacks(syncRunnable);
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
         runOnUiThread(() -> {
@@ -1267,9 +1280,6 @@ public class MainActivity extends Activity {
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
             progressBar.setVisibility(View.VISIBLE);
-            if (swipeRefreshLayout != null) {
-                swipeRefreshLayout.setEnabled(!url.startsWith("file:///android_asset/"));
-            }
             view.evaluateJavascript(BLOB_JS, null);
             view.evaluateJavascript(CLIPBOARD_JS, null);
             view.evaluateJavascript(SWIPE_SCROLL_JS, null);
@@ -1279,10 +1289,6 @@ public class MainActivity extends Activity {
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
             progressBar.setVisibility(View.GONE);
-            swipeRefreshLayout.setRefreshing(false);
-            if (swipeRefreshLayout != null) {
-                swipeRefreshLayout.setEnabled(!url.startsWith("file:///android_asset/"));
-            }
             view.evaluateJavascript(BLOB_JS, null);
             view.evaluateJavascript(CLIPBOARD_JS, null);
             view.evaluateJavascript(SETTINGS_INJECT_JS, null);

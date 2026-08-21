@@ -518,6 +518,46 @@
         #toast.show {
             transform: translateX(-50%) translateY(0);
         }
+
+        /* Scroll to Bottom Button */
+        .scroll-to-bottom-btn {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            transition: opacity 0.2s, transform 0.2s;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        .scroll-to-bottom-btn.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .scroll-to-bottom-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Callouts / blockquotes styling */
+        .message-bubble blockquote {
+            border-left: 3px solid var(--accent-color);
+            margin: 10px 0;
+            padding-left: 12px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -574,6 +614,12 @@
                 </button>
             </div>
             <div class="messages-container" id="messagesContainer"></div>
+            <button type="button" id="scrollToBottomBtn" class="scroll-to-bottom-btn" onclick="scrollToBottomSmooth()" aria-label="Scroll to bottom">
+                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <polyline points="19 12 12 19 5 12"></polyline>
+                </svg>
+            </button>
         </div>
     </div>
 
@@ -681,7 +727,7 @@
             
             // 1. Extract and escape code blocks
             html = html.replace(/```(\w*)?[\s\n]*([\s\S]*?)```/g, (match, lang, code) => {
-                const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+                const id = `CODEBLOCKPLACEHOLDER${codeBlocks.length}`;
                 const cleanLang = lang ? lang.trim() : 'code';
                 const codeHtml = `
                     <div class="code-container">
@@ -701,10 +747,20 @@
             
             // 2. Extract inline code
             html = html.replace(/`([^`\n]+)`/g, (match, code) => {
-                const id = `__CODE_BLOCK_${codeBlocks.length}__`;
+                const id = `CODEBLOCKPLACEHOLDER${codeBlocks.length}`;
                 codeBlocks.push(`<code>${escapeHTML(code)}</code>`);
                 return id;
             });
+            
+            // Convert raw text arrows to clean unicode symbols
+            html = html.replace(/<-->/g, '↔');
+            html = html.replace(/-->/g, '→');
+            html = html.replace(/->/g, '→');
+            html = html.replace(/<--/g, '←');
+            html = html.replace(/<-/g, '←');
+            html = html.replace(/==>/g, '⇒');
+            html = html.replace(/=>/g, '⇒');
+            html = html.replace(/<==/g, '⇐');
             
             // Escape HTML for safety, preserving tokens
             html = escapeHTML(html);
@@ -805,7 +861,7 @@
                 if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
                     return line;
                 }
-                if (trimmed.startsWith('__CODE_BLOCK_') || trimmed.startsWith('<div class="code-container">')) {
+                if (trimmed.startsWith('CODEBLOCKPLACEHOLDER') || trimmed.startsWith('<div class="code-container">')) {
                     return line;
                 }
                 return `<p>${line}</p>`;
@@ -815,7 +871,7 @@
 
             // 9. Restore code blocks
             codeBlocks.forEach((block, index) => {
-                html = html.replace(`__CODE_BLOCK_${index}__`, block);
+                html = html.replace(`CODEBLOCKPLACEHOLDER${index}`, block);
             });
             
             return html;
@@ -1321,10 +1377,38 @@
                 detailsComp.classList.add('active');
             }
             
+            initScrollListener();
+            
             setTimeout(() => {
                 const container = document.getElementById('messagesContainer');
                 if (container) container.scrollTop = container.scrollHeight;
             }, 100);
+        }
+
+        function initScrollListener() {
+            const container = document.getElementById('messagesContainer');
+            const btn = document.getElementById('scrollToBottomBtn');
+            if (container && btn) {
+                btn.classList.remove('show'); // Reset
+                container.addEventListener('scroll', () => {
+                    const offset = container.scrollHeight - container.clientHeight - container.scrollTop;
+                    if (offset > 200) {
+                        btn.classList.add('show');
+                    } else {
+                        btn.classList.remove('show');
+                    }
+                });
+            }
+        }
+
+        function scrollToBottomSmooth() {
+            const container = document.getElementById('messagesContainer');
+            if (container) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
         }
 
         function hideDetails() {
