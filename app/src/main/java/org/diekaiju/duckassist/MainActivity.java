@@ -83,6 +83,7 @@ public class MainActivity extends Activity {
     private boolean pendingVoiceChat = false;
     private boolean pendingContinueLastChat = false;
     private Uri pendingSharedFileUri = null;
+    private boolean isImageZoomActive = false;
 
     private String pendingDownloadUrl;
     private String pendingDownloadUserAgent;
@@ -109,6 +110,31 @@ public class MainActivity extends Activity {
             "        return u;" +
             "    };" +
             "    console.log('Blob Handler Patch Active');" +
+            "})();";
+
+    private final String IMAGE_ZOOM_MONITOR_JS = "(function() {" +
+            "    if (window.imageZoomMonitorInjected) return;" +
+            "    window.imageZoomMonitorInjected = true;" +
+            "    var lastState = false;" +
+            "    var check = function() {" +
+            "        var el = document.querySelector('.UOuDiDFlbyCQchgZ4909');" +
+            "        var isActive = false;" +
+            "        if (el) {" +
+            "            var style = window.getComputedStyle(el);" +
+            "            isActive = style.display !== 'none' && style.visibility !== 'hidden';" +
+            "        }" +
+            "        if (isActive !== lastState) {" +
+            "            lastState = isActive;" +
+            "            if (window.Android && window.Android.setImageZoomActive) {" +
+            "                window.Android.setImageZoomActive(isActive);" +
+            "            }" +
+            "        }" +
+            "    };" +
+            "    var observer = new MutationObserver(check);" +
+            "    if (document.body) {" +
+            "        observer.observe(document.body, { childList: true, subtree: true, attributes: true });" +
+            "    }" +
+            "    setInterval(check, 500);" +
             "})();";
 
     private final String CLIPBOARD_JS = "(function() {" +
@@ -465,8 +491,8 @@ public class MainActivity extends Activity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setLoadWithOverviewMode(true);
         webSettings.setUseWideViewPort(true);
-        webSettings.setSupportZoom(false);
-        webSettings.setBuiltInZoomControls(false);
+        webSettings.setSupportZoom(true);
+        webSettings.setBuiltInZoomControls(true);
         webSettings.setDisplayZoomControls(false);
         webSettings.setAllowFileAccess(false);
         webSettings.setAllowContentAccess(false);
@@ -571,6 +597,9 @@ public class MainActivity extends Activity {
             @SuppressLint("ClickableViewAccessibility")
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                if (isImageZoomActive) {
+                    return false;
+                }
                 scaleGestureDetector.onTouchEvent(event);
                 return event.getPointerCount() > 1 || scaleGestureDetector.isInProgress();
             }
@@ -591,6 +620,13 @@ public class MainActivity extends Activity {
             handleIntent(getIntent(), false);
         }
         FreeDroidWarn.showWarningOnUpgrade(this, BuildConfig.VERSION_CODE);
+    }
+
+    @JavascriptInterface
+    public void setImageZoomActive(boolean active) {
+        runOnUiThread(() -> {
+            isImageZoomActive = active;
+        });
     }
 
     @JavascriptInterface
@@ -1282,6 +1318,7 @@ public class MainActivity extends Activity {
             progressBar.setVisibility(View.VISIBLE);
             view.evaluateJavascript(BLOB_JS, null);
             view.evaluateJavascript(CLIPBOARD_JS, null);
+            view.evaluateJavascript(IMAGE_ZOOM_MONITOR_JS, null);
             view.evaluateJavascript(SWIPE_SCROLL_JS, null);
         }
 
@@ -1291,6 +1328,7 @@ public class MainActivity extends Activity {
             progressBar.setVisibility(View.GONE);
             view.evaluateJavascript(BLOB_JS, null);
             view.evaluateJavascript(CLIPBOARD_JS, null);
+            view.evaluateJavascript(IMAGE_ZOOM_MONITOR_JS, null);
             view.evaluateJavascript(SETTINGS_INJECT_JS, null);
             view.evaluateJavascript(SWIPE_SCROLL_JS, null);
             if (url != null && (url.startsWith("https://duck.ai") || url.startsWith("https://duckduckgo.com"))) {
