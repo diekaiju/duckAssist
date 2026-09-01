@@ -1,5 +1,5 @@
 # duckAssist
-https://img.shields.io/github/downloads/diekaiju/duckAssist/total?logo=github&label=GitHub%20Downloads
+[downloads](https://img.shields.io/github/downloads/diekaiju/duckAssist/total?logo=github&label=GitHub%20Downloads)
 
 *This project is a fork of [gptAssist](https://github.com/woheller69/gptAssist).*
 
