@@ -1,0 +1,3 @@
+- Kaydedilen Sohbetler: Yapay zeka tarafından oluşturulan görselleri görüntüleme ve indirme desteğine sahip çevrimdışı sohbet geçmişi görüntüleyici.
+- Otomatik Odaklama: Yükleme tamamlandığında komut alanına otomatik odaklanır ve klavyeyi açar.
+- Görsel Tuval Yakınlaştırma: Yapay zeka görselleri için çimdikleyerek yakınlaştırma ve kaydırma desteği.

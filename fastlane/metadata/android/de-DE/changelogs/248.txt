@@ -1,0 +1,3 @@
+- Gespeicherte Chats: Offline-Chatverlauf-Viewer mit Anzeige und Download von KI-generierten Bildern.
+- Automatischer Fokus: Richtet den Fokus automatisch auf das Eingabefeld und öffnet die Tastatur nach dem Laden.
+- Bild-Canvas-Zoom: Pinch-to-Zoom und Schwenken für KI-generierte Bilder.

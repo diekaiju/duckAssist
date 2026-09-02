@@ -1,0 +1,3 @@
+- Chats Salvos: Visualizador offline do histórico de chats com visualização e download de imagens geradas por IA.
+- Foco Automático: Foca automaticamente na caixa de texto e abre o teclado quando o carregamento termina.
+- Zoom de Imagem: Suporte a gesto de pinça para zoom e navegação em imagens geradas por IA.
