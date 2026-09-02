@@ -1507,6 +1507,7 @@ public class MainActivity extends Activity {
             promptDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
             
             WebView webView = new WebView(MainActivity.this);
+            webView.setBackgroundColor(Color.TRANSPARENT);
             WebSettings ws = webView.getSettings();
             ws.setJavaScriptEnabled(true);
             ws.setDomStorageEnabled(true);
