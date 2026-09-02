@@ -68,8 +68,7 @@ public class ChatActivity extends MainActivity {
                     bottomDrawerCard.getViewTreeObserver().removeOnGlobalLayoutListener(this);
                     
                     int screenHeight = getResources().getDisplayMetrics().heightPixels;
-                    cardHeight = (int) (screenHeight * 0.85); // Drawer takes 85% of screen height when expanded
-                    collapsedHeight = (int) (screenHeight * 0.55); // Drawer takes 55% of screen height when collapsed
+                    cardHeight = (int) (screenHeight * 0.92); // Full drawer height (92% of screen height)
                     
                     // Adjust card height in layout
                     android.view.ViewGroup.LayoutParams params = bottomDrawerCard.getLayoutParams();
@@ -78,10 +77,10 @@ public class ChatActivity extends MainActivity {
                         bottomDrawerCard.setLayoutParams(params);
                     }
 
-                    // Start animation: Slide up from hidden state to collapsed state
+                    // Start animation: Slide up from hidden state to FULL drawer state (translationY = 0)
                     bottomDrawerCard.setTranslationY(cardHeight); // Start fully hidden
                     bottomDrawerCard.animate()
-                            .translationY(cardHeight - collapsedHeight)
+                            .translationY(0)
                             .setDuration(300)
                             .start();
                 }
@@ -119,22 +118,13 @@ public class ChatActivity extends MainActivity {
 
                         case MotionEvent.ACTION_UP:
                             float currentTranslationY = bottomDrawerCard.getTranslationY();
-                            float collapsedTranslationY = cardHeight - collapsedHeight;
 
-                            // Snap to one of the three states depending on where the user dragged it
-                            if (currentTranslationY < collapsedTranslationY / 2) {
-                                // Snap to fully expanded
-                                bottomDrawerCard.animate()
-                                        .translationY(0)
-                                        .setDuration(250)
-                                        .start();
-                            } else if (currentTranslationY > (collapsedTranslationY + cardHeight) / 2) {
-                                // Snap to hidden and finish activity
+                            // Dragged down past 35% -> dismiss drawer; otherwise snap back to full drawer
+                            if (currentTranslationY > cardHeight * 0.35f) {
                                 dismissDrawer();
                             } else {
-                                // Snap back to collapsed
                                 bottomDrawerCard.animate()
-                                        .translationY(collapsedTranslationY)
+                                        .translationY(0)
                                         .setDuration(250)
                                         .start();
                             }

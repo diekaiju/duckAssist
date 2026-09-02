@@ -336,6 +336,7 @@
                 </label>
             </div>
 
+            <!--
             <div class="setting-row">
                 <div class="setting-info">
                     <div class="setting-label">Prompt Dialog on Launch</div>
@@ -346,6 +347,7 @@
                     <span class="slider"></span>
                 </label>
             </div>
+            -->
 
             <div class="section-title">Prompts Suffix</div>
 
@@ -374,14 +376,41 @@
     <script>
         let lastHeight = window.innerHeight;
 
+        function syncMutualExclusivity() {
+            const autoFocusCb = document.getElementById('auto_focus_keyboard');
+            const promptLaunchCb = document.getElementById('prompt_on_launch');
+
+            if (autoFocusCb && promptLaunchCb) {
+                if (autoFocusCb.checked) {
+                    promptLaunchCb.checked = false;
+                    promptLaunchCb.disabled = true;
+                    promptLaunchCb.closest('.setting-row').style.opacity = '0.4';
+                    promptLaunchCb.closest('.setting-row').style.pointerEvents = 'none';
+                } else if (promptLaunchCb.checked) {
+                    autoFocusCb.checked = false;
+                    autoFocusCb.disabled = true;
+                    autoFocusCb.closest('.setting-row').style.opacity = '0.4';
+                    autoFocusCb.closest('.setting-row').style.pointerEvents = 'none';
+                } else {
+                    promptLaunchCb.disabled = false;
+                    autoFocusCb.disabled = false;
+                    promptLaunchCb.closest('.setting-row').style.opacity = '1';
+                    promptLaunchCb.closest('.setting-row').style.pointerEvents = 'auto';
+                    autoFocusCb.closest('.setting-row').style.opacity = '1';
+                    autoFocusCb.closest('.setting-row').style.pointerEvents = 'auto';
+                }
+            }
+        }
+
         function autoSave() {
+            const promptLaunchEl = document.getElementById('prompt_on_launch');
             const data = {
                 use_drawer_assistant: document.getElementById('use_drawer_assistant').checked,
                 use_drawer_shared: document.getElementById('use_drawer_shared').checked,
                 trigger_voice_assistant: document.getElementById('trigger_voice_assistant').checked,
                 continue_last_chat: document.getElementById('continue_last_chat').checked,
                 auto_focus_keyboard: document.getElementById('auto_focus_keyboard').checked,
-                prompt_on_launch: document.getElementById('prompt_on_launch').checked,
+                prompt_on_launch: promptLaunchEl ? promptLaunchEl.checked : false,
                 ask_duck_suffix: document.getElementById('ask_duck_suffix').value,
                 shared_doc_suffix: document.getElementById('shared_doc_suffix').value
             };
@@ -399,7 +428,10 @@
                     document.getElementById('trigger_voice_assistant').checked = settings.trigger_voice_assistant;
                     document.getElementById('continue_last_chat').checked = settings.continue_last_chat || false;
                     document.getElementById('auto_focus_keyboard').checked = settings.auto_focus_keyboard || false;
-                    document.getElementById('prompt_on_launch').checked = settings.prompt_on_launch || false;
+                    const promptLaunchEl = document.getElementById('prompt_on_launch');
+                    if (promptLaunchEl) {
+                        promptLaunchEl.checked = settings.prompt_on_launch || false;
+                    }
                     document.getElementById('ask_duck_suffix').value = settings.ask_duck_suffix || '';
                     document.getElementById('shared_doc_suffix').value = settings.shared_doc_suffix || '';
                 } catch (e) {
@@ -407,10 +439,31 @@
                 }
             }
 
-            // Auto-save checkboxes on change
+            syncMutualExclusivity();
+
+            const autoFocusCb = document.getElementById('auto_focus_keyboard');
+            const promptLaunchCb = document.getElementById('prompt_on_launch');
+
+            if (autoFocusCb) {
+                autoFocusCb.addEventListener('change', () => {
+                    syncMutualExclusivity();
+                    autoSave();
+                });
+            }
+
+            if (promptLaunchCb) {
+                promptLaunchCb.addEventListener('change', () => {
+                    syncMutualExclusivity();
+                    autoSave();
+                });
+            }
+
+            // Auto-save other checkboxes on change
             const checkboxes = document.querySelectorAll('input[type="checkbox"]');
             checkboxes.forEach(cb => {
-                cb.addEventListener('change', autoSave);
+                if (cb !== autoFocusCb && cb !== promptLaunchCb) {
+                    cb.addEventListener('change', autoSave);
+                }
             });
 
             // Auto-scroll focused textareas and set up auto-save on blur

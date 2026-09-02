@@ -138,8 +138,48 @@ public class MainActivity extends Activity {
             "})();";
 
     private final String AUTO_FOCUS_JS = "(function() {" +
-            "    if (window.autoFocusMonitorInjected) return;" +
-            "    window.autoFocusMonitorInjected = true;" +
+            "    function triggerNativeFocusFlow() {" +
+            "        console.log('Starting Auto Focus 2-Step SVG Click Flow');" +
+            "        var sidebarPath = document.querySelector('path[d*=\"M9.41 10.125\"], path[d*=\"M14.375 4.5\"]');" +
+            "        var sidebarBtn = sidebarPath ? sidebarPath.closest('button, [role=\"button\"]') : null;" +
+            "        if (!sidebarBtn) {" +
+            "            sidebarBtn = document.querySelector('button[aria-label*=\"sidebar\" i], button[aria-label*=\"Sidebar\"]');" +
+            "        }" +
+            "        if (sidebarBtn && sidebarBtn.offsetParent !== null) {" +
+            "            console.log('Clicking Sidebar icon button...');" +
+            "            sidebarBtn.click();" +
+            "        }" +
+            "        setTimeout(function() {" +
+            "            var newChatPath = document.querySelector('path[d*=\"M8.072 1\"], path[d*=\"M4.044c-1.51\"]');" +
+            "            var newChatBtn = newChatPath ? newChatPath.closest('button, [role=\"button\"]') : null;" +
+            "            if (!newChatBtn) {" +
+            "                var buttons = document.querySelectorAll('button, [role=\"button\"]');" +
+            "                for (var i = 0; i < buttons.length; i++) {" +
+            "                    var txt = (buttons[i].innerText || buttons[i].textContent || '').trim().toLowerCase();" +
+            "                    if (txt === 'new' || txt === 'new chat') {" +
+            "                        newChatBtn = buttons[i];" +
+            "                        break;" +
+            "                    }" +
+            "                }" +
+            "            }" +
+            "            if (newChatBtn) {" +
+            "                console.log('Clicking New Chat icon button...');" +
+            "                newChatBtn.click();" +
+            "            }" +
+            "            setTimeout(function() {" +
+            "                var input = document.querySelector('textarea') || document.querySelector('[contenteditable=\"true\"]');" +
+            "                if (input) {" +
+            "                    input.focus();" +
+            "                    input.click();" +
+            "                }" +
+            "                if (window.Android && window.Android.showSoftKeyboard) {" +
+            "                    window.Android.showSoftKeyboard();" +
+            "                }" +
+            "            }, 100);" +
+            "        }, 150);" +
+            "    }" +
+            "    triggerNativeFocusFlow();" +
+            "    /* PREVIOUS IMPLEMENTATION PRESERVED BELOW:" +
             "    var lastFocusedUrl = null;" +
             "    var lastFocusedElement = null;" +
             "    var checkAndFocus = function() {" +
@@ -235,6 +275,7 @@ public class MainActivity extends Activity {
             "        checkAndFocus();" +
             "    };" +
             "    init();" +
+            "    */" +
             "})();";
 
     private final String CLIPBOARD_JS = "(function() {" +
@@ -895,14 +936,21 @@ public class MainActivity extends Activity {
                 public void saveSettings(String jsonStr) {
                     try {
                         org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", false);
+                        boolean promptLaunch = obj.optBoolean("prompt_on_launch", false);
+                        if (autoFocus) {
+                            promptLaunch = false;
+                        } else if (promptLaunch) {
+                            autoFocus = false;
+                        }
                         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
                         prefs.edit()
                              .putBoolean("use_drawer_assistant", obj.optBoolean("use_drawer_assistant", true))
                              .putBoolean("use_drawer_shared", obj.optBoolean("use_drawer_shared", true))
                              .putBoolean("trigger_voice_assistant", obj.optBoolean("trigger_voice_assistant", true))
                              .putBoolean("continue_last_chat", obj.optBoolean("continue_last_chat", false))
-                             .putBoolean("auto_focus_keyboard", obj.optBoolean("auto_focus_keyboard", false))
-                             .putBoolean("prompt_on_launch", obj.optBoolean("prompt_on_launch", false))
+                             .putBoolean("auto_focus_keyboard", autoFocus)
+                             .putBoolean("prompt_on_launch", promptLaunch)
                              .putString("ask_duck_suffix", obj.optString("ask_duck_suffix", ""))
                              .putString("shared_doc_suffix", obj.optString("shared_doc_suffix", ""))
                              .apply();
@@ -919,14 +967,21 @@ public class MainActivity extends Activity {
                 public void saveSettingsAuto(String jsonStr) {
                     try {
                         org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", false);
+                        boolean promptLaunch = obj.optBoolean("prompt_on_launch", false);
+                        if (autoFocus) {
+                            promptLaunch = false;
+                        } else if (promptLaunch) {
+                            autoFocus = false;
+                        }
                         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
                         prefs.edit()
                              .putBoolean("use_drawer_assistant", obj.optBoolean("use_drawer_assistant", true))
                              .putBoolean("use_drawer_shared", obj.optBoolean("use_drawer_shared", true))
                              .putBoolean("trigger_voice_assistant", obj.optBoolean("trigger_voice_assistant", true))
                              .putBoolean("continue_last_chat", obj.optBoolean("continue_last_chat", false))
-                             .putBoolean("auto_focus_keyboard", obj.optBoolean("auto_focus_keyboard", false))
-                             .putBoolean("prompt_on_launch", obj.optBoolean("prompt_on_launch", false))
+                             .putBoolean("auto_focus_keyboard", autoFocus)
+                             .putBoolean("prompt_on_launch", promptLaunch)
                              .putString("ask_duck_suffix", obj.optString("ask_duck_suffix", ""))
                              .putString("shared_doc_suffix", obj.optString("shared_doc_suffix", ""))
                              .apply();
@@ -1677,6 +1732,12 @@ public class MainActivity extends Activity {
                 view.evaluateJavascript(CLIPBOARD_JS, null);
                 view.evaluateJavascript(SETTINGS_INJECT_JS, null);
                 view.evaluateJavascript(SWIPE_SCROLL_JS, null);
+            }
+            if (newProgress == 100) {
+                SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                if (prefs.getBoolean("auto_focus_keyboard", false)) {
+                    view.evaluateJavascript(AUTO_FOCUS_JS, null);
+                }
             }
         }
 
