@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ask duck.ai</title>
+    <style>
+        :root {
+            --bg-overlay: rgba(0, 0, 0, 0.65);
+            --card-bg: #212226;
+            --input-bg: #18191c;
+            --accent-color: #de5833;
+            --accent-hover: #e06948;
+            --text-primary: #f5f6f7;
+            --text-secondary: #9fa2a6;
+            --border-color: #2c2d30;
+            --border-focus: #de5833;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-overlay: rgba(0, 0, 0, 0.4);
+                --card-bg: #ffffff;
+                --input-bg: #f5f5f6;
+                --accent-color: #de5833;
+                --accent-hover: #e06948;
+                --text-primary: #1f2023;
+                --text-secondary: #71747a;
+                --border-color: #e2e3e5;
+                --border-focus: #de5833;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-overlay);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            height: 100vh;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .dialog-container {
+            width: 100%;
+            max-width: 540px;
+            background-color: var(--card-bg);
+            border-radius: 24px;
+            padding: 16px 18px 14px 18px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            animation: slideUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(24px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .dialog-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2px;
+        }
+
+        .brand-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-color);
+            letter-spacing: -0.01em;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.15s, color 0.15s;
+        }
+
+        .close-btn:hover {
+            background-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        /* Duck.ai Textbox Wrapper */
+        .duck-input-wrapper {
+            position: relative;
+            background-color: var(--input-bg);
+            border: 1.5px solid var(--border-color);
+            border-radius: 18px;
+            padding: 12px 14px 10px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .duck-input-wrapper:focus-within {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(222, 88, 51, 0.15);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 56px;
+            max-height: 160px;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 15px;
+            line-height: 1.45;
+            resize: none;
+        }
+
+        textarea::placeholder {
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .duck-input-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .input-hint {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .send-btn {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s, opacity 0.2s;
+            flex-shrink: 0;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .send-btn.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .send-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .send-btn:active {
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body>
+    <div class="dialog-container" onclick="event.stopPropagation()">
+        <div class="dialog-header">
+            <div class="brand-badge">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                </svg>
+                <span>Ask duck.ai</span>
+            </div>
+            <button type="button" class="close-btn" onclick="dismiss()" aria-label="Close">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <div class="duck-input-wrapper">
+            <textarea id="promptInput" placeholder="Ask anything..." oninput="onInputChanged(this)" onkeydown="onKeyDown(event)"></textarea>
+            <div class="duck-input-footer">
+                <span class="input-hint">Press Enter to send</span>
+                <button type="button" id="sendBtn" class="send-btn" onclick="submitPrompt()" aria-label="Send query">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5"></line>
+                        <polyline points="5 12 12 5 19 12"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const inputEl = document.getElementById('promptInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        function onInputChanged(el) {
+            const val = (el.value || '').trim();
+            if (val.length > 0) {
+                sendBtn.classList.add('active');
+            } else {
+                sendBtn.classList.remove('active');
+            }
+            // Auto resize textarea
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+        }
+
+        function onKeyDown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitPrompt();
+            }
+        }
+
+        function submitPrompt() {
+            const text = (inputEl.value || '').trim();
+            if (!text) return;
+            const bridge = (typeof AndroidPrompt !== 'undefined') ? AndroidPrompt : (typeof Android !== 'undefined' ? Android : null);
+            if (bridge && bridge.sendPrompt) {
+                bridge.sendPrompt(text);
+            }
+        }
+
+        function dismiss() {
+            const bridge = (typeof AndroidPrompt !== 'undefined') ? AndroidPrompt : (typeof Android !== 'undefined' ? Android : null);
+            if (bridge && bridge.dismissPrompt) {
+                bridge.dismissPrompt();
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            if (e.target === document.body) {
+                dismiss();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                inputEl.focus();
+                const bridge = (typeof AndroidPrompt !== 'undefined') ? AndroidPrompt : (typeof Android !== 'undefined' ? Android : null);
+                if (bridge && bridge.showSoftKeyboard) {
+                    bridge.showSoftKeyboard();
+                }
+            }, 150);
+        });
+    </script>
+</body>
+</html>

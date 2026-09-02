@@ -336,6 +336,17 @@
                 </label>
             </div>
 
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">Prompt Dialog on Launch</div>
+                    <div class="setting-desc">Open a prompt dialog when launching the app to immediately send queries with auto-prompt</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="prompt_on_launch">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <div class="section-title">Prompts Suffix</div>
 
             <div class="input-group">
@@ -370,6 +381,7 @@
                 trigger_voice_assistant: document.getElementById('trigger_voice_assistant').checked,
                 continue_last_chat: document.getElementById('continue_last_chat').checked,
                 auto_focus_keyboard: document.getElementById('auto_focus_keyboard').checked,
+                prompt_on_launch: document.getElementById('prompt_on_launch').checked,
                 ask_duck_suffix: document.getElementById('ask_duck_suffix').value,
                 shared_doc_suffix: document.getElementById('shared_doc_suffix').value
             };
@@ -387,6 +399,7 @@
                     document.getElementById('trigger_voice_assistant').checked = settings.trigger_voice_assistant;
                     document.getElementById('continue_last_chat').checked = settings.continue_last_chat || false;
                     document.getElementById('auto_focus_keyboard').checked = settings.auto_focus_keyboard || false;
+                    document.getElementById('prompt_on_launch').checked = settings.prompt_on_launch || false;
                     document.getElementById('ask_duck_suffix').value = settings.ask_duck_suffix || '';
                     document.getElementById('shared_doc_suffix').value = settings.shared_doc_suffix || '';
                 } catch (e) {

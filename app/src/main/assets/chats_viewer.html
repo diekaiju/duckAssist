@@ -424,6 +424,14 @@
             overflow: hidden;
             background-color: #1a1a1a;
             border: 1px solid var(--border-color);
+            color: #f5f6f7;
+        }
+
+        .code-container pre,
+        .code-container code,
+        .code-block,
+        .code-block code {
+            color: #f5f6f7 !important;
         }
 
         .code-header {
@@ -558,6 +566,135 @@
             color: var(--text-secondary);
             font-style: italic;
         }
+
+        /* Generated image card styling */
+        .generated-image-card {
+            margin: 12px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .generated-image-wrapper {
+            position: relative;
+            width: 100%;
+            background-color: #050505;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            min-height: 180px;
+        }
+
+        .chat-generated-img {
+            width: 100%;
+            height: auto;
+            max-height: 480px;
+            object-fit: contain;
+            display: block;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chat-generated-img:hover {
+            transform: scale(1.015);
+        }
+
+        .image-card-footer {
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .image-card-header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .image-model-badge {
+            background-color: var(--border-color);
+            color: var(--text-primary);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .image-prompt-box {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            line-height: 1.45;
+            font-style: italic;
+            background: rgba(0,0,0,0.12);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border-left: 3px solid var(--accent-color);
+            word-wrap: break-word;
+        }
+
+        .image-download-btn {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .image-download-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        /* Lightbox Modal */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.92);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 16px;
+            backdrop-filter: blur(4px);
+        }
+
+        .lightbox-modal.active {
+            display: flex;
+        }
+
+        .lightbox-img {
+            max-width: 95%;
+            max-height: 82vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+        }
+
+        .lightbox-controls {
+            margin-top: 14px;
+            display: flex;
+            gap: 12px;
+        }
     </style>
 </head>
 <body>
@@ -643,17 +780,28 @@
         function getTimestamp(chat) {
             if (!chat) return 0;
             let val = chat.lastEdit || chat.createdAt || chat.updatedAt || chat.timestamp;
+            if (val && typeof val === 'object') {
+                val = val.generationTimestamp || val.timestamp || null;
+            }
             if (!val && Array.isArray(chat.messages) && chat.messages.length > 0) {
                 const lastMsg = chat.messages[chat.messages.length - 1];
                 val = lastMsg.createdAt || lastMsg.generationTimestamp || lastMsg.timestamp;
+                if (val && typeof val === 'object') {
+                    val = val.generationTimestamp || val.timestamp || 0;
+                }
             }
             if (!val) return 0;
             if (typeof val === 'number') return val;
+            if (typeof val === 'object') return 0;
             const d = new Date(val).getTime();
             return isNaN(d) ? 0 : d;
         }
 
         function formatDate(timestamp) {
+            if (!timestamp) return "";
+            if (typeof timestamp === 'object') {
+                timestamp = timestamp.generationTimestamp || timestamp.timestamp || null;
+            }
             if (!timestamp) return "";
             const date = new Date(timestamp);
             if (isNaN(date.getTime())) return "";
@@ -938,13 +1086,110 @@
                 return base ? String(base) : '';
             }
 
+            const chatImagesMap = {};
+
+            if (dumpData.indexedDB) {
+                for (let dbName in dumpData.indexedDB) {
+                    let db = dumpData.indexedDB[dbName];
+                    if (!db || typeof db !== 'object') continue;
+                    for (let storeName in db) {
+                        let items = db[storeName];
+                        if (Array.isArray(items)) {
+                            items.forEach(item => {
+                                if (!item || typeof item !== 'object') return;
+                                const id = item.uuid || item.id || item.fileId || item.imageId;
+                                let fileData = item.file || item.data || item.url || item.src || item.base64;
+                                if (typeof fileData === 'object' && fileData !== null) {
+                                    fileData = fileData.dataUrl || fileData.url || fileData.src || fileData.data || fileData.base64;
+                                }
+                                if (id && fileData && typeof fileData === 'string') {
+                                    chatImagesMap[id] = fileData;
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            function extractImagesFromMessage(m, imageMap) {
+                const images = [];
+                const seenIds = new Set();
+                if (!m || typeof m !== 'object') return images;
+
+                if (Array.isArray(m.parts)) {
+                    let currentPrompt = "";
+                    m.parts.forEach(p => {
+                        if (!p || typeof p !== 'object') return;
+                        if (p.type === 'tool-invocation' && p.toolName === 'GenerateImage' && p.toolArguments) {
+                            try {
+                                const args = typeof p.toolArguments === 'string' ? JSON.parse(p.toolArguments) : p.toolArguments;
+                                if (args && args.imageGenPrompt) {
+                                    currentPrompt = args.imageGenPrompt;
+                                }
+                            } catch(e) {}
+                        }
+                    });
+
+                    m.parts.forEach(p => {
+                        if (!p || typeof p !== 'object') return;
+                        if (p.type === 'ui-component' && (p.name === 'generate-image' || p.toolName === 'GenerateImage')) {
+                            const imgId = (p.savedData && p.savedData.id) || p.id || (p.data && p.data.id) || (p.data && p.data.uuid);
+                            const modelName = (p.data && p.data.imageModelDisplayName) || "AI Image Generator";
+                            const dataUrl = (imgId && imageMap[imgId]) || (p.data && p.data.url) || p.url || null;
+                            const key = imgId || ('img_' + images.length);
+
+                            if (!seenIds.has(key)) {
+                                seenIds.add(key);
+                                images.push({
+                                    id: imgId,
+                                    url: dataUrl,
+                                    prompt: currentPrompt,
+                                    model: modelName
+                                });
+                            }
+                        } else if (p.type === 'image' || p.type === 'image_url' || p.image_url) {
+                            const imgId = p.id || p.uuid || (p.savedData && p.savedData.id);
+                            const url = p.url || p.image_url || (p.image_url && p.image_url.url) || (imgId && imageMap[imgId]);
+                            if (url) {
+                                const key = imgId || url;
+                                if (!seenIds.has(key)) {
+                                    seenIds.add(key);
+                                    images.push({
+                                        id: imgId,
+                                        url: url,
+                                        prompt: currentPrompt,
+                                        model: "Image"
+                                    });
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (Array.isArray(m.fileRefs)) {
+                    m.fileRefs.forEach(refId => {
+                        if (refId && imageMap[refId] && !seenIds.has(refId)) {
+                            seenIds.add(refId);
+                            images.push({
+                                id: refId,
+                                url: imageMap[refId],
+                                prompt: "",
+                                model: "Attached Image"
+                            });
+                        }
+                    });
+                }
+
+                return images;
+            }
+
             function mapTurnsArray(rawArray) {
                 const mapped = [];
                 if (!Array.isArray(rawArray)) return mapped;
                 rawArray.forEach(m => {
                     if (!m) return;
                     if (typeof m === 'string') {
-                        mapped.push({ role: 'assistant', content: m });
+                        mapped.push({ role: 'assistant', content: m, images: [] });
                         return;
                     }
                     
@@ -953,21 +1198,26 @@
                     
                     if (req && typeof req !== 'boolean' && (typeof req === 'string' || typeof req === 'object')) {
                         const reqText = getMessageContent(req);
-                        if (reqText) mapped.push({ role: 'user', content: reqText });
+                        if (reqText) mapped.push({ role: 'user', content: reqText, images: extractImagesFromMessage(req, chatImagesMap) });
                     }
                     if (res && typeof res !== 'boolean' && (typeof res === 'string' || typeof res === 'object')) {
                         const resText = getMessageContent(res);
-                        if (resText) mapped.push({ role: 'assistant', content: resText });
+                        const resImgs = extractImagesFromMessage(res, chatImagesMap);
+                        if (resText || resImgs.length > 0) mapped.push({ role: 'assistant', content: resText, images: resImgs });
                     }
                     
                     if (!req && !res) {
                         const rawRole = (m.role || m.sender || m.type || m.author || '').toLowerCase();
                         const isUser = (rawRole === 'user' || rawRole === 'human' || rawRole === 'client' || rawRole === 'me');
                         const content = getMessageContent(m);
-                        if (content) {
+                        const imgs = extractImagesFromMessage(m, chatImagesMap);
+
+                        if (content || imgs.length > 0 || (Array.isArray(m.parts) && m.parts.length > 0)) {
                             mapped.push({
                                 role: isUser ? 'user' : 'assistant',
-                                content: content
+                                content: content,
+                                images: imgs,
+                                parts: m.parts || null
                             });
                         }
                     }
@@ -989,6 +1239,7 @@
                                 // Assume it could be conversations metadata
                                 items.forEach(item => {
                                     if (item && typeof item === 'object') {
+                                        if (item.chatId === '__metadata__' || item.id === '__metadata__') return;
                                         const rawMsgs = getRawMsgsArray(item);
                                         if (rawMsgs) {
                                             const mapped = mapTurnsArray(rawMsgs);
@@ -1125,6 +1376,12 @@
                         const dumpData = JSON.parse(rawJson);
                         allChats = extractChats(dumpData);
                         renderChatList();
+                        if (currentActiveChat) {
+                            const updated = allChats.find(c => c.id === currentActiveChat.id);
+                            if (updated) {
+                                showDetails(updated);
+                            }
+                        }
                     }
                 } catch(e) {
                     console.error("Error parsing chats:", e);
@@ -1355,12 +1612,49 @@
                             `;
                             
                             assistantWrapper.innerHTML = headerHtml;
-                            assistantWrapper.appendChild(bubble);
+                            if (content) {
+                                assistantWrapper.appendChild(bubble);
+                            }
                             
                             const actionsContainer = document.createElement('div');
                             actionsContainer.innerHTML = actionsHtml;
                             if (actionsContainer.firstElementChild) {
                                 assistantWrapper.appendChild(actionsContainer.firstElementChild);
+                            }
+
+                            if (Array.isArray(msg.images) && msg.images.length > 0) {
+                                msg.images.forEach(img => {
+                                    const imgCard = document.createElement('div');
+                                    imgCard.className = 'generated-image-card';
+                                    if (img.url) {
+                                        imgCard.innerHTML = `
+                                            <div class="generated-image-wrapper">
+                                                <img src="${escapeHTML(img.url)}" class="chat-generated-img" onclick="openLightbox('${escapeHTML(img.url)}')" alt="Generated Image" />
+                                            </div>
+                                            <div class="image-card-footer">
+                                                <div class="image-card-header-bar">
+                                                    <span class="image-model-badge">${escapeHTML(img.model || "Generated Image")}</span>
+                                                    <button type="button" class="image-download-btn" onclick="downloadImage('${escapeHTML(img.url)}', '${img.id || 'ai_image'}')">
+                                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                        Download
+                                                    </button>
+                                                </div>
+                                                ${img.prompt ? `<div class="image-prompt-box"><strong>Prompt:</strong> ${escapeHTML(img.prompt)}</div>` : ''}
+                                            </div>
+                                        `;
+                                    } else {
+                                        imgCard.innerHTML = `
+                                            <div class="image-card-footer">
+                                                <div class="image-card-header-bar">
+                                                    <span class="image-model-badge">${escapeHTML(img.model || "Generated Image")}</span>
+                                                    <span style="font-size:11px; color:var(--text-secondary);">Image Offline</span>
+                                                </div>
+                                                ${img.prompt ? `<div class="image-prompt-box"><strong>Prompt:</strong> ${escapeHTML(img.prompt)}</div>` : ''}
+                                            </div>
+                                        `;
+                                    }
+                                    assistantWrapper.appendChild(imgCard);
+                                });
                             }
                             
                             container.appendChild(assistantWrapper);
@@ -1383,6 +1677,57 @@
                 const container = document.getElementById('messagesContainer');
                 if (container) container.scrollTop = container.scrollHeight;
             }, 100);
+        }
+
+        function downloadImage(dataUrl, filenameHint) {
+            if (!dataUrl) return;
+            const filename = (filenameHint || 'ai_generated_image') + '.jpeg';
+            const bridge = (typeof AndroidChatsViewer !== 'undefined') ? AndroidChatsViewer : (typeof Android !== 'undefined' ? Android : null);
+            
+            if (bridge && bridge.processBlob) {
+                bridge.processBlob(dataUrl, 'image/jpeg', `attachment; filename="${filename}"`, '');
+                showToast("Saving image...");
+            } else {
+                const a = document.createElement('a');
+                a.href = dataUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showToast("Image download started");
+            }
+        }
+
+        function openLightbox(url) {
+            let lb = document.getElementById('lightboxModal');
+            if (!lb) {
+                lb = document.createElement('div');
+                lb.id = 'lightboxModal';
+                lb.className = 'lightbox-modal';
+                lb.onclick = (e) => {
+                    if (e.target === lb || e.target.classList.contains('lightbox-close-btn')) {
+                        closeLightbox();
+                    }
+                };
+                lb.innerHTML = `
+                    <button type="button" class="back-btn lightbox-close-btn" onclick="closeLightbox()" style="position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.2); color:#fff; border-radius:50%;">
+                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                    <img id="lightboxImg" class="lightbox-img" src="" alt="Full view" />
+                    <div class="lightbox-controls">
+                        <button type="button" class="action-btn" id="lightboxDownloadBtn">Download Image</button>
+                    </div>
+                `;
+                document.body.appendChild(lb);
+            }
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('lightboxDownloadBtn').onclick = () => downloadImage(url, 'ai_generated_image');
+            lb.classList.add('active');
+        }
+
+        function closeLightbox() {
+            const lb = document.getElementById('lightboxModal');
+            if (lb) lb.classList.remove('active');
         }
 
         function initScrollListener() {
