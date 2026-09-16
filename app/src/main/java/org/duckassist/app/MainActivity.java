@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
     private final String TAG = "duckAssist";
     private final boolean restricted = false;
     private boolean pendingVoiceChat = false;
+    private boolean pendingAutoFocus = false;
     private boolean pendingContinueLastChat = false;
     private Uri pendingSharedFileUri = null;
     private static boolean isSafeMode = false;
@@ -160,144 +161,69 @@ public class MainActivity extends Activity {
             "})();";
 
     private final String AUTO_FOCUS_JS = "(function() {" +
-            "    function triggerNativeFocusFlow() {" +
-            "        console.log('Starting Auto Focus 2-Step SVG Click Flow');" +
-            "        var sidebarPath = document.querySelector('path[d*=\"M9.41 10.125\"], path[d*=\"M14.375 4.5\"]');" +
-            "        var sidebarBtn = sidebarPath ? sidebarPath.closest('button, [role=\"button\"]') : null;" +
-            "        if (!sidebarBtn) {" +
-            "            sidebarBtn = document.querySelector('button[aria-label*=\"sidebar\" i], button[aria-label*=\"Sidebar\"]');" +
+            "  console.log('Auto Focus: waiting for page progress to complete before triggering Ctrl+Shift+O');" +
+            "  function sendShortcut() {" +
+            "    console.log('Dispatching Ctrl+Shift+O shortcut');" +
+            "    var targets = [window, document, document.body, document.documentElement, document.activeElement];" +
+            "    var events = ['keydown', 'keypress', 'keyup'];" +
+            "    var configs = [" +
+            "      { key: 'O', code: 'KeyO', keyCode: 79, which: 79, ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }," +
+            "      { key: 'o', code: 'KeyO', keyCode: 79, which: 79, ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }," +
+            "      { key: 'O', code: 'KeyO', keyCode: 79, which: 79, metaKey: true, shiftKey: true, bubbles: true, cancelable: true }," +
+            "      { key: 'o', code: 'KeyO', keyCode: 79, which: 79, metaKey: true, shiftKey: true, bubbles: true, cancelable: true }" +
+            "    ];" +
+            "    for (var i = 0; i < targets.length; i++) {" +
+            "      var t = targets[i];" +
+            "      if (!t) continue;" +
+            "      for (var c = 0; c < configs.length; c++) {" +
+            "        for (var e = 0; e < events.length; e++) {" +
+            "          try {" +
+            "            t.dispatchEvent(new KeyboardEvent(events[e], configs[c]));" +
+            "          } catch (err) {}" +
             "        }" +
-            "        if (sidebarBtn && sidebarBtn.offsetParent !== null) {" +
-            "            console.log('Clicking Sidebar icon button...');" +
-            "            sidebarBtn.click();" +
-            "        }" +
-            "        setTimeout(function() {" +
-            "            var newChatPath = document.querySelector('path[d*=\"M8.072 1\"], path[d*=\"M4.044c-1.51\"]');" +
-            "            var newChatBtn = newChatPath ? newChatPath.closest('button, [role=\"button\"]') : null;" +
-            "            if (!newChatBtn) {" +
-            "                var buttons = document.querySelectorAll('button, [role=\"button\"]');" +
-            "                for (var i = 0; i < buttons.length; i++) {" +
-            "                    var txt = (buttons[i].innerText || buttons[i].textContent || '').trim().toLowerCase();" +
-            "                    if (txt === 'new' || txt === 'new chat') {" +
-            "                        newChatBtn = buttons[i];" +
-            "                        break;" +
-            "                    }" +
-            "                }" +
-            "            }" +
-            "            if (newChatBtn) {" +
-            "                console.log('Clicking New Chat icon button...');" +
-            "                newChatBtn.click();" +
-            "            }" +
-            "            setTimeout(function() {" +
-            "                var input = document.querySelector('textarea') || document.querySelector('[contenteditable=\"true\"]');" +
-            "                if (input) {" +
-            "                    input.focus();" +
-            "                    input.click();" +
-            "                }" +
-            "                if (window.Android && window.Android.showSoftKeyboard) {" +
-            "                    window.Android.showSoftKeyboard();" +
-            "                }" +
-            "            }, 100);" +
-            "        }, 150);" +
+            "      }" +
             "    }" +
-            "    triggerNativeFocusFlow();" +
-            "    /* PREVIOUS IMPLEMENTATION PRESERVED BELOW:" +
-            "    var lastFocusedUrl = null;" +
-            "    var lastFocusedElement = null;" +
-            "    var checkAndFocus = function() {" +
-            "        var currentUrl = window.location.href;" +
-            "        var textareas = document.querySelectorAll('textarea');" +
-            "        var el = null;" +
-            "        for (var i = 0; i < textareas.length; i++) {" +
-            "            var placeholder = textareas[i].getAttribute('placeholder') || '';" +
-            "            if (placeholder.toLowerCase().includes('ask anything') || placeholder.toLowerCase().includes('reply')) {" +
-            "                el = textareas[i];" +
-            "                break;" +
-            "            }" +
-            "        }" +
-            "        if (el && (currentUrl !== lastFocusedUrl || el !== lastFocusedElement)) {" +
-            "            var doFocus = function() {" +
-            "                var rect = el.getBoundingClientRect();" +
-            "                var x = rect.left + rect.width / 2;" +
-            "                var y = rect.top + rect.height / 2;" +
-            "                var touch = new Touch({" +
-            "                    identifier: Date.now()," +
-            "                    target: el," +
-            "                    clientX: x," +
-            "                    clientY: y," +
-            "                    screenX: x," +
-            "                    screenY: y," +
-            "                    pageX: x," +
-            "                    pageY: y" +
-            "                });" +
-            "                var touchStart = new TouchEvent('touchstart', {" +
-            "                    bubbles: true," +
-            "                    cancelable: true," +
-            "                    touches: [touch]," +
-            "                    targetTouches: [touch]," +
-            "                    changedTouches: [touch]" +
-            "                });" +
-            "                el.dispatchEvent(touchStart);" +
-            "                var touchEnd = new TouchEvent('touchend', {" +
-            "                    bubbles: true," +
-            "                    cancelable: true," +
-            "                    touches: []," +
-            "                    targetTouches: []," +
-            "                    changedTouches: [touch]" +
-            "                });" +
-            "                el.dispatchEvent(touchEnd);" +
-            "                el.click();" +
-            "                el.focus();" +
-            "                var event = new Event('focus', { bubbles: true });" +
-            "                el.dispatchEvent(event);" +
-            "                if (window.Android && window.Android.showSoftKeyboard) {" +
-            "                    window.Android.showSoftKeyboard();" +
-            "                }" +
-            "            };" +
-            "            setTimeout(function() {" +
-            "                doFocus();" +
-            "                var lockEndTime = Date.now() + 2000;" +
-            "                var lockFocus = function(e) {" +
-            "                    if (Date.now() < lockEndTime && document.activeElement !== el) {" +
-            "                        el.focus();" +
-            "                    }" +
-            "                };" +
-            "                document.addEventListener('focus', lockFocus, true);" +
-            "                setTimeout(function() {" +
-            "                    document.removeEventListener('focus', lockFocus, true);" +
-            "                }, 2050);" +
-            "            }, 500);" +
-            "            lastFocusedUrl = currentUrl;" +
-            "            lastFocusedElement = el;" +
-            "        }" +
-            "    };" +
-            "    var init = function() {" +
-            "        if (!document.body) {" +
-            "            setTimeout(init, 50);" +
-            "            return;" +
-            "        }" +
-            "        var observer = new MutationObserver(checkAndFocus);" +
-            "        observer.observe(document.body, { childList: true, subtree: true });" +
-            "        var wrap = function(type) {" +
-            "            var orig = history[type];" +
-            "            return function() {" +
-            "                var rv = orig.apply(this, arguments);" +
-            "                var e = new Event(type);" +
-            "                e.arguments = arguments;" +
-            "                window.dispatchEvent(e);" +
-            "                return rv;" +
-            "            };" +
-            "        };" +
-            "        history.pushState = wrap('pushState');" +
-            "        history.replaceState = wrap('replaceState');" +
-            "        window.addEventListener('pushState', checkAndFocus);" +
-            "        window.addEventListener('replaceState', checkAndFocus);" +
-            "        window.addEventListener('popstate', checkAndFocus);" +
-            "        setInterval(checkAndFocus, 1000);" +
-            "        checkAndFocus();" +
-            "    };" +
-            "    init();" +
-            "    */" +
+            "    if (window.Android && window.Android.triggerShortcutNative) {" +
+            "      window.Android.triggerShortcutNative();" +
+            "    }" +
+            "  }" +
+            "  function isPageReady() {" +
+            "    var app = document.getElementById('app');" +
+            "    var loader = document.getElementById('app-loader');" +
+            "    var loaderHidden = !loader || loader.classList.contains('loader-hidden') || loader.style.display === 'none' || loader.style.opacity === '0';" +
+            "    var hasContent = app && app.children && app.children.length > 0;" +
+            "    return (hasContent && loaderHidden) || document.querySelector('textarea, [contenteditable=\"true\"]') !== null;" +
+            "  }" +
+            "  function focusAndOpenKeyboard() {" +
+            "    var input = document.querySelector('textarea, [contenteditable=\"true\"], input[type=\"text\"]');" +
+            "    if (input) {" +
+            "      input.focus();" +
+            "      input.click();" +
+            "    }" +
+            "    if (window.Android && window.Android.showSoftKeyboard) {" +
+            "      window.Android.showSoftKeyboard();" +
+            "    }" +
+            "  }" +
+            "  var attempts = 0;" +
+            "  function checkAndFire() {" +
+            "    attempts++;" +
+            "    if (isPageReady() || attempts >= 25) {" +
+            "      console.log('Page ready (attempt ' + attempts + '), firing Ctrl+Shift+O');" +
+            "      sendShortcut();" +
+            "      setTimeout(sendShortcut, 400);" +
+            "      setTimeout(focusAndOpenKeyboard, 600);" +
+            "      setTimeout(focusAndOpenKeyboard, 1200);" +
+            "      return true;" +
+            "    }" +
+            "    return false;" +
+            "  }" +
+            "  if (!checkAndFire()) {" +
+            "    var interval = setInterval(function() {" +
+            "      if (checkAndFire()) {" +
+            "        clearInterval(interval);" +
+            "      }" +
+            "    }, 400);" +
+            "  }" +
             "})();";
 
     private final String CLIPBOARD_JS = "(function() {" +
@@ -903,6 +829,15 @@ public class MainActivity extends Activity {
     }
 
     @JavascriptInterface
+    public void showToast(final String message) {
+        runOnUiThread(() -> {
+            if (message != null && !message.isEmpty()) {
+                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    @JavascriptInterface
     public void showSoftKeyboard() {
         runOnUiThread(() -> {
             chatWebView.requestFocus();
@@ -919,6 +854,33 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> {
             chatWebView.requestFocus();
             chatWebView.requestFocusFromTouch();
+        });
+    }
+
+    @JavascriptInterface
+    public void triggerShortcut() {
+        runOnUiThread(() -> {
+            Toast.makeText(MainActivity.this, "Triggering Ctrl+Shift+O...", Toast.LENGTH_SHORT).show();
+            if (chatWebView != null) {
+                chatWebView.evaluateJavascript(AUTO_FOCUS_JS, null);
+                long now = android.os.SystemClock.uptimeMillis();
+                int meta = KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON;
+                chatWebView.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_O, 0, meta));
+                chatWebView.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_O, 0, meta));
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public void triggerShortcutNative() {
+        runOnUiThread(() -> {
+            if (chatWebView != null) {
+                chatWebView.requestFocus();
+                long now = android.os.SystemClock.uptimeMillis();
+                int meta = KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON;
+                chatWebView.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_O, 0, meta));
+                chatWebView.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_O, 0, meta));
+            }
         });
     }
 
@@ -1133,8 +1095,65 @@ public class MainActivity extends Activity {
                 }
                 return;
             }
-            lastFetchedChatsJson = jsonStr;
-            ChatDatabaseHelper.getInstance(MainActivity.this).saveCachedChatsJson(jsonStr);
+            String finalJsonStr = jsonStr;
+            try {
+                org.json.JSONObject newObj = new org.json.JSONObject(jsonStr);
+                String oldJson = ChatDatabaseHelper.getInstance(MainActivity.this).getCachedChatsJson();
+                if (oldJson != null && !oldJson.isEmpty() && !oldJson.equals("{}")) {
+                    try {
+                        org.json.JSONObject oldObj = new org.json.JSONObject(oldJson);
+                        
+                        // Merge blobMap
+                        org.json.JSONObject oldBlobMap = oldObj.optJSONObject("blobMap");
+                        org.json.JSONObject newBlobMap = newObj.optJSONObject("blobMap");
+                        if (oldBlobMap != null) {
+                            if (newBlobMap == null) {
+                                newObj.put("blobMap", oldBlobMap);
+                            } else {
+                                java.util.Iterator<String> keys = oldBlobMap.keys();
+                                while (keys.hasNext()) {
+                                    String k = keys.next();
+                                    if (!newBlobMap.has(k)) {
+                                        newBlobMap.put(k, oldBlobMap.get(k));
+                                    }
+                                }
+                            }
+                        }
+
+                        // Merge domImages
+                        org.json.JSONArray oldDomImgs = oldObj.optJSONArray("domImages");
+                        org.json.JSONArray newDomImgs = newObj.optJSONArray("domImages");
+                        if (oldDomImgs != null && oldDomImgs.length() > 0) {
+                            if (newDomImgs == null) {
+                                newObj.put("domImages", oldDomImgs);
+                            } else {
+                                java.util.Set<String> existingSrcs = new java.util.HashSet<>();
+                                for (int i = 0; i < newDomImgs.length(); i++) {
+                                    org.json.JSONObject item = newDomImgs.optJSONObject(i);
+                                    if (item != null && item.has("src")) {
+                                        existingSrcs.add(item.optString("src"));
+                                    }
+                                }
+                                for (int i = 0; i < oldDomImgs.length(); i++) {
+                                    org.json.JSONObject item = oldDomImgs.optJSONObject(i);
+                                    if (item != null) {
+                                        String src = item.optString("src");
+                                        if (src == null || !existingSrcs.contains(src)) {
+                                            newDomImgs.put(item);
+                                            if (src != null) existingSrcs.add(src);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Throwable ignore) {}
+                }
+                finalJsonStr = newObj.toString();
+            } catch (Throwable e) {
+                Log.w(TAG, "Fetched chats merge error", e);
+            }
+            lastFetchedChatsJson = finalJsonStr;
+            ChatDatabaseHelper.getInstance(MainActivity.this).saveCachedChatsJson(finalJsonStr);
             if (isRequestingViewer || (chatsViewerDialog != null && chatsViewerDialog.isShowing())) {
                 isRequestingViewer = false;
                 showChatsViewerDialog();
@@ -1666,11 +1685,22 @@ public class MainActivity extends Activity {
                 }
             }
         } else if (Intent.ACTION_MAIN.equals(action) || action == null) {
-            if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
-                    || chatWebView.getUrl().equals("about:blank")) {
-                chatWebView.loadUrl("https://duck.ai/");
-            }
             SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            boolean autoFocus = prefs.getBoolean("auto_focus_keyboard", false);
+            if (autoFocus) {
+                String currentUrl = chatWebView.getUrl();
+                if (currentUrl != null && currentUrl.startsWith("https://duck.ai")) {
+                    chatWebView.evaluateJavascript(AUTO_FOCUS_JS, null);
+                } else {
+                    pendingAutoFocus = true;
+                    chatWebView.loadUrl("https://duck.ai/");
+                }
+            } else {
+                if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
+                        || chatWebView.getUrl().equals("about:blank")) {
+                    chatWebView.loadUrl("https://duck.ai/");
+                }
+            }
             if (prefs.getBoolean("prompt_on_launch", false)) {
                 showPromptOnLaunchDialog();
             }
@@ -1805,8 +1835,9 @@ public class MainActivity extends Activity {
             safeEvaluateJavascript(view, CLIPBOARD_JS);
             safeEvaluateJavascript(view, IMAGE_ZOOM_MONITOR_JS);
             SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-            if (prefs.getBoolean("auto_focus_keyboard", false)) {
+            if (pendingAutoFocus || prefs.getBoolean("auto_focus_keyboard", false)) {
                 safeEvaluateJavascript(view, AUTO_FOCUS_JS);
+                pendingAutoFocus = false;
             }
             safeEvaluateJavascript(view, SETTINGS_INJECT_JS);
             safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
