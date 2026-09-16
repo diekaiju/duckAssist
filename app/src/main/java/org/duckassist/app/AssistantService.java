@@ -1,4 +1,4 @@
-package org.diekaiju.duckassist;
+package org.duckassist.app;
 
 import android.service.voice.VoiceInteractionService;
 

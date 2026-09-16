@@ -7,10 +7,10 @@ System.setProperty("line.separator", "\n")
 
 android {
     compileSdk 35
-    namespace 'org.diekaiju.duckassist'
+    namespace 'org.duckassist.app'
     android.buildFeatures.buildConfig true
     defaultConfig {
-        applicationId "org.diekaiju.duckassist"
+        applicationId "org.duckassist.app"
         minSdk 24
         targetSdk 35
         versionCode 248
@@ -28,7 +28,7 @@ android {
 
             def storeFileProp = localProperties.getProperty('signing.storeFile')
             if (storeFileProp != null) {
-                storeFile = file(storeFileProp)
+                storeFile = rootProject.file(storeFileProp)
                 storePassword = localProperties.getProperty('signing.storePassword')
                 keyAlias = localProperties.getProperty('signing.keyAlias')
                 keyPassword = localProperties.getProperty('signing.keyPassword')
@@ -38,6 +38,7 @@ android {
 
     buildTypes {
         release {
+            debuggable true
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             def releaseSigning = signingConfigs.findByName('release')

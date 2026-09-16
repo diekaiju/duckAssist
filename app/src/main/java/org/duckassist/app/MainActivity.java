@@ -1,4 +1,4 @@
-package org.diekaiju.duckassist;
+package org.duckassist.app;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -83,7 +83,18 @@ public class MainActivity extends Activity {
     private boolean pendingVoiceChat = false;
     private boolean pendingContinueLastChat = false;
     private Uri pendingSharedFileUri = null;
+    private static boolean isSafeMode = false;
     private boolean isImageZoomActive = false;
+
+    private void safeEvaluateJavascript(WebView view, String script) {
+        if (isSafeMode || view == null || script == null) return;
+        try {
+            view.evaluateJavascript(script, null);
+        } catch (Throwable t) {
+            Log.e(TAG, "Error executing custom tweak script, enabling Safe Mode fallback", t);
+            isSafeMode = true;
+        }
+    }
 
     private String pendingDownloadUrl;
     private String pendingDownloadUserAgent;
@@ -676,12 +687,28 @@ public class MainActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+        
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            Log.e(TAG, "Uncaught error/exception intercepted. Activating Safe Mode fallback to pure duck.ai webview", throwable);
+            isSafeMode = true;
+            runOnUiThread(() -> {
+                try {
+                    if (chatWebView != null) {
+                        chatWebView.loadUrl("https://duck.ai/");
+                    }
+                } catch (Throwable ignored) {}
+            });
+        });
+
         setContentView(getLayoutResourceId());
 
         progressBar = findViewById(R.id.progressBar);
         chatWebView = findViewById(R.id.chatWebView);
 
         WebSettings webSettings = chatWebView.getSettings();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setLoadWithOverviewMode(true);
@@ -701,7 +728,13 @@ public class MainActivity extends Activity {
         webSettings.setGeolocationEnabled(false);
 
         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-        lastFetchedChatsJson = prefs.getString("cached_chats_json", "{}");
+        try {
+            lastFetchedChatsJson = prefs.getString("cached_chats_json", "{}");
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to load cached_chats_json, resetting to empty", t);
+            lastFetchedChatsJson = "{}";
+            prefs.edit().remove("cached_chats_json").apply();
+        }
         int savedZoom = prefs.getInt("text_zoom", 100);
         currentZoomLevel = (float) savedZoom;
         webSettings.setTextZoom(savedZoom);
@@ -1037,8 +1070,8 @@ public class MainActivity extends Activity {
                     }
                     return;
                 }
-            } catch (org.json.JSONException e) {
-                Log.w(TAG, "Fetched chats is not a valid JSON object, skipping overwrite");
+            } catch (Throwable e) {
+                Log.w(TAG, "Fetched chats could not be parsed or caused OutOfMemoryError, skipping overwrite", e);
                 if (isRequestingViewer) {
                     isRequestingViewer = false;
                     showChatsViewerDialog();
@@ -1046,8 +1079,13 @@ public class MainActivity extends Activity {
                 return;
             }
             lastFetchedChatsJson = jsonStr;
-            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-            prefs.edit().putString("cached_chats_json", jsonStr).apply();
+            // Cap cached chats length to 500KB before saving in SharedPreferences to prevent XML memory bloating
+            if (jsonStr != null && jsonStr.length() <= 500000) {
+                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                prefs.edit().putString("cached_chats_json", jsonStr).apply();
+            } else {
+                Log.w(TAG, "Fetched chats JSON is too large for SharedPreferences, skipping persistent storage");
+            }
             if (isRequestingViewer || (chatsViewerDialog != null && chatsViewerDialog.isShowing())) {
                 isRequestingViewer = false;
                 showChatsViewerDialog();
@@ -1658,37 +1696,38 @@ public class MainActivity extends Activity {
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
             progressBar.setVisibility(View.VISIBLE);
-            view.evaluateJavascript(BLOB_JS, null);
-            view.evaluateJavascript(CLIPBOARD_JS, null);
-            view.evaluateJavascript(IMAGE_ZOOM_MONITOR_JS, null);
-            view.evaluateJavascript(SWIPE_SCROLL_JS, null);
+            if (isSafeMode) return;
+            safeEvaluateJavascript(view, BLOB_JS);
+            safeEvaluateJavascript(view, CLIPBOARD_JS);
+            safeEvaluateJavascript(view, IMAGE_ZOOM_MONITOR_JS);
+            safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
             progressBar.setVisibility(View.GONE);
-            view.evaluateJavascript(BLOB_JS, null);
-            view.evaluateJavascript(CLIPBOARD_JS, null);
-            view.evaluateJavascript(IMAGE_ZOOM_MONITOR_JS, null);
+            if (isSafeMode) return;
+            safeEvaluateJavascript(view, BLOB_JS);
+            safeEvaluateJavascript(view, CLIPBOARD_JS);
+            safeEvaluateJavascript(view, IMAGE_ZOOM_MONITOR_JS);
             SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
             if (prefs.getBoolean("auto_focus_keyboard", false)) {
-                view.evaluateJavascript(AUTO_FOCUS_JS, null);
+                safeEvaluateJavascript(view, AUTO_FOCUS_JS);
             }
-            view.evaluateJavascript(SETTINGS_INJECT_JS, null);
-            view.evaluateJavascript(SWIPE_SCROLL_JS, null);
+            safeEvaluateJavascript(view, SETTINGS_INJECT_JS);
+            safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
             if (url != null && (url.startsWith("https://duck.ai") || url.startsWith("https://duckduckgo.com"))) {
-                view.evaluateJavascript(DUMP_CHATS_JS, null);
+                safeEvaluateJavascript(view, DUMP_CHATS_JS);
             }
             if (pendingContinueLastChat) {
-                view.evaluateJavascript(CONTINUE_CHAT_JS, null);
+                safeEvaluateJavascript(view, CONTINUE_CHAT_JS);
             }
             if (pendingVoiceChat) {
-                view.evaluateJavascript(
+                safeEvaluateJavascript(view,
                         "setTimeout(function() {" +
                                 VOICE_JS +
-                                "}, 1500);",
-                        null);
+                                "}, 1500);");
                 pendingVoiceChat = false;
             }
         }
@@ -1727,16 +1766,17 @@ public class MainActivity extends Activity {
         @Override
         public void onProgressChanged(WebView view, int newProgress) {
             super.onProgressChanged(view, newProgress);
+            if (isSafeMode) return;
             if (newProgress > 5) {
-                view.evaluateJavascript(BLOB_JS, null);
-                view.evaluateJavascript(CLIPBOARD_JS, null);
-                view.evaluateJavascript(SETTINGS_INJECT_JS, null);
-                view.evaluateJavascript(SWIPE_SCROLL_JS, null);
+                safeEvaluateJavascript(view, BLOB_JS);
+                safeEvaluateJavascript(view, CLIPBOARD_JS);
+                safeEvaluateJavascript(view, SETTINGS_INJECT_JS);
+                safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
             }
             if (newProgress == 100) {
                 SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
                 if (prefs.getBoolean("auto_focus_keyboard", false)) {
-                    view.evaluateJavascript(AUTO_FOCUS_JS, null);
+                    safeEvaluateJavascript(view, AUTO_FOCUS_JS);
                 }
             }
         }
@@ -1805,7 +1845,7 @@ public class MainActivity extends Activity {
     private void openCamera() {
         try {
             File photoFile = new File(getExternalCacheDir(), "camera_photo_" + System.currentTimeMillis() + ".jpg");
-            cameraImageUri = FileProvider.getUriForFile(this, "org.diekaiju.duckassist.fileprovider", photoFile);
+            cameraImageUri = FileProvider.getUriForFile(this, "org.duckassist.app.fileprovider", photoFile);
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             intent.putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri);
             startActivityForResult(intent, CAMERA_REQUEST_CODE);

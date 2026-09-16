@@ -11,12 +11,13 @@
 
     <application
         android:allowBackup="true"
+        android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
         <activity
-            android:name="org.diekaiju.duckassist.MainActivity"
+            android:name="org.duckassist.app.MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:launchMode="singleTask"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
@@ -39,7 +40,7 @@
         </activity>
 
         <activity
-            android:name="org.diekaiju.duckassist.AskActivity"
+            android:name="org.duckassist.app.AskActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:exported="true">
             <intent-filter>
@@ -61,11 +62,11 @@
         </activity>
 
         <activity
-            android:name="org.diekaiju.duckassist.ChatActivity"
+            android:name="org.duckassist.app.ChatActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:launchMode="singleTask"
-            android:taskAffinity="org.diekaiju.duckassist.ask"
+            android:taskAffinity="org.duckassist.app.ask"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
             android:exported="true">
             <intent-filter>
@@ -104,7 +105,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="org.diekaiju.duckassist.fileprovider"
+            android:authorities="org.duckassist.app.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
