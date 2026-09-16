@@ -581,7 +581,7 @@ public class MainActivity extends Activity {
             "                hasTimedOut = true;" +
             "                try { db.close(); } catch(err){}" +
             "                resolve(dbData);" +
-            "              }, 3000);" +
+            "              }, 15000);" +
             "              storeNames.forEach((storeName) => {" +
             "                try {" +
             "                  let tx = db.transaction(storeName, 'readonly');" +
@@ -632,10 +632,43 @@ public class MainActivity extends Activity {
             "          localData[key] = localStorage.getItem(key);" +
             "        }" +
             "      } catch(e){}" +
+            "      let blobData = {};" +
+            "      if (window.blobMap && window.blobMap instanceof Map) {" +
+            "        for (let [bUrl, bObj] of window.blobMap.entries()) {" +
+            "          try {" +
+            "            blobData[bUrl] = await convertBlobs(bObj);" +
+            "          } catch(e) {}" +
+            "        }" +
+            "      }" +
+            "      let domImages = [];" +
+            "      try {" +
+            "        let imgs = document.querySelectorAll('img');" +
+            "        for (let i = 0; i < imgs.length; i++) {" +
+            "          let img = imgs[i];" +
+            "          let src = img.src || '';" +
+            "          if (src) {" +
+            "            try {" +
+            "              if (img.naturalWidth > 30 && img.naturalHeight > 30) {" +
+            "                let canvas = document.createElement('canvas');" +
+            "                canvas.width = img.naturalWidth;" +
+            "                canvas.height = img.naturalHeight;" +
+            "                let ctx = canvas.getContext('2d');" +
+            "                ctx.drawImage(img, 0, 0);" +
+            "                let b64 = canvas.toDataURL('image/jpeg', 0.9);" +
+            "                domImages.push({ src: src, alt: img.alt || '', dataUrl: b64 });" +
+            "              } else if (src.startsWith('data:')) {" +
+            "                domImages.push({ src: src, alt: img.alt || '', dataUrl: src });" +
+            "              }" +
+            "            } catch(e) {}" +
+            "          }" +
+            "        }" +
+            "      } catch(e) {}" +
             "      if (typeof Android !== 'undefined' && Android.onChatsFetched) {" +
             "        Android.onChatsFetched(JSON.stringify({" +
             "          indexedDB: result," +
-            "          localStorage: localData" +
+            "          localStorage: localData," +
+            "          blobMap: blobData," +
+            "          domImages: domImages" +
             "        }));" +
             "      }" +
             "    }).catch(err => {" +
@@ -740,11 +773,19 @@ public class MainActivity extends Activity {
 
         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
         try {
-            lastFetchedChatsJson = prefs.getString("cached_chats_json", "{}");
+            lastFetchedChatsJson = ChatDatabaseHelper.getInstance(this).getCachedChatsJson();
+            if (lastFetchedChatsJson == null || lastFetchedChatsJson.equals("{}") || lastFetchedChatsJson.isEmpty()) {
+                String oldPrefsJson = prefs.getString("cached_chats_json", null);
+                if (oldPrefsJson != null && !oldPrefsJson.equals("{}") && !oldPrefsJson.isEmpty()) {
+                    lastFetchedChatsJson = oldPrefsJson;
+                    ChatDatabaseHelper.getInstance(this).saveCachedChatsJson(oldPrefsJson);
+                } else {
+                    lastFetchedChatsJson = "{}";
+                }
+            }
         } catch (Throwable t) {
-            Log.e(TAG, "Failed to load cached_chats_json, resetting to empty", t);
+            Log.e(TAG, "Failed to load cached_chats_json from database, resetting to empty", t);
             lastFetchedChatsJson = "{}";
-            prefs.edit().remove("cached_chats_json").apply();
         }
         int savedZoom = prefs.getInt("text_zoom", 100);
         currentZoomLevel = (float) savedZoom;
@@ -891,8 +932,11 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public String getChatsJson() {
         if (lastFetchedChatsJson == null || lastFetchedChatsJson.equals("{}") || lastFetchedChatsJson.isEmpty()) {
-            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-            lastFetchedChatsJson = prefs.getString("cached_chats_json", "{}");
+            lastFetchedChatsJson = ChatDatabaseHelper.getInstance(MainActivity.this).getCachedChatsJson();
+            if (lastFetchedChatsJson == null || lastFetchedChatsJson.equals("{}") || lastFetchedChatsJson.isEmpty()) {
+                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                lastFetchedChatsJson = prefs.getString("cached_chats_json", "{}");
+            }
         }
         return lastFetchedChatsJson;
     }
@@ -1090,13 +1134,7 @@ public class MainActivity extends Activity {
                 return;
             }
             lastFetchedChatsJson = jsonStr;
-            // Cap cached chats length to 500KB before saving in SharedPreferences to prevent XML memory bloating
-            if (jsonStr != null && jsonStr.length() <= 500000) {
-                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-                prefs.edit().putString("cached_chats_json", jsonStr).apply();
-            } else {
-                Log.w(TAG, "Fetched chats JSON is too large for SharedPreferences, skipping persistent storage");
-            }
+            ChatDatabaseHelper.getInstance(MainActivity.this).saveCachedChatsJson(jsonStr);
             if (isRequestingViewer || (chatsViewerDialog != null && chatsViewerDialog.isShowing())) {
                 isRequestingViewer = false;
                 showChatsViewerDialog();

@@ -434,16 +434,17 @@
             margin: 10px 0;
             border-radius: 8px;
             overflow: hidden;
-            background-color: #1a1a1a;
+            background-color: #1a1a1a !important;
             border: 1px solid var(--border-color);
-            color: #f5f6f7;
+            color: #ffffff !important;
         }
 
         .code-container pre,
         .code-container code,
         .code-block,
         .code-block code {
-            color: #f5f6f7 !important;
+            color: #ffffff !important;
+            background-color: transparent !important;
         }
 
         .code-header {
@@ -1100,6 +1101,24 @@
 
             const chatImagesMap = {};
 
+            if (dumpData.blobMap && typeof dumpData.blobMap === 'object') {
+                for (let k in dumpData.blobMap) {
+                    if (dumpData.blobMap[k]) {
+                        chatImagesMap[k] = dumpData.blobMap[k];
+                    }
+                }
+            }
+
+            if (Array.isArray(dumpData.domImages)) {
+                dumpData.domImages.forEach((img, idx) => {
+                    if (img && img.dataUrl) {
+                        if (img.src) chatImagesMap[img.src] = img.dataUrl;
+                        if (img.alt) chatImagesMap[img.alt] = img.dataUrl;
+                        chatImagesMap['dom_img_' + idx] = img.dataUrl;
+                    }
+                });
+            }
+
             if (dumpData.indexedDB) {
                 for (let dbName in dumpData.indexedDB) {
                     let db = dumpData.indexedDB[dbName];
@@ -1363,6 +1382,44 @@
                     }
                 });
             }
+
+            // Link captured Base64 images to chats if assistant turn has pendingSync
+            chats.forEach(c => {
+                if (c.messages && c.messages.length > 0) {
+                    const firstMsg = c.messages[0];
+                    const prompt = (firstMsg.content || c.title || '').toLowerCase();
+                    const isImgPrompt = prompt.includes('image') || prompt.includes('draw') || prompt.includes('picture') || prompt.includes('photo') || prompt.includes('generate');
+                    
+                    const hasAssistantImg = c.messages.some(m => m.images && m.images.length > 0);
+                    if (!hasAssistantImg && isImgPrompt) {
+                        const allBase64 = Object.values(chatImagesMap).filter(v => typeof v === 'string' && (v.startsWith('data:image') || v.startsWith('blob:')));
+                        if (allBase64.length > 0) {
+                            const imgUrl = allBase64[0];
+                            const lastMsg = c.messages[c.messages.length - 1];
+                            if (lastMsg.role === 'assistant') {
+                                lastMsg.images = lastMsg.images || [];
+                                lastMsg.images.push({
+                                    id: 'img_' + c.id,
+                                    url: imgUrl,
+                                    prompt: firstMsg.content || c.title,
+                                    model: c.model || 'Generated Image'
+                                });
+                            } else {
+                                c.messages.push({
+                                    role: 'assistant',
+                                    content: '',
+                                    images: [{
+                                        id: 'img_' + c.id,
+                                        url: imgUrl,
+                                        prompt: firstMsg.content || c.title,
+                                        model: c.model || 'Generated Image'
+                                    }]
+                                });
+                            }
+                        }
+                    }
+                }
+            });
 
             // Filter duplicates
             const seenIds = new Set();
