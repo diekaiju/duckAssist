@@ -60,6 +60,10 @@ import android.os.StrictMode;
 import android.os.Handler;
 import android.os.Looper;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 import androidx.webkit.URLUtilCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -93,6 +97,13 @@ public class MainActivity extends Activity {
         } catch (Throwable t) {
             Log.e(TAG, "Error executing custom tweak script, enabling Safe Mode fallback", t);
             isSafeMode = true;
+            
+            runOnUiThread(() -> {
+                Toast.makeText(MainActivity.this, "Script crash caught! Activating Safe Mode fallback...", Toast.LENGTH_LONG).show();
+                if (chatWebView != null) {
+                    chatWebView.loadUrl("https://duck.ai/");
+                }
+            });
         }
     }
 
@@ -1165,6 +1176,37 @@ public class MainActivity extends Activity {
         });
     }
 
+    private String formatMarkdownFilename(String filename, String mimetype) {
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+
+        if (filename == null || filename.isEmpty()) {
+            return "Duck_AI_Chat_" + timestamp + ".md";
+        }
+
+        // Change .txt or .text extensions to .md
+        if (filename.toLowerCase().endsWith(".txt")) {
+            filename = filename.substring(0, filename.length() - 4) + ".md";
+        } else if (filename.toLowerCase().endsWith(".text")) {
+            filename = filename.substring(0, filename.length() - 5) + ".md";
+        } else if (filename.toLowerCase().endsWith(".bin")) {
+            filename = filename.substring(0, filename.length() - 4) + ".md";
+        }
+
+        // If no extension exists, append .md
+        if (!filename.contains(".")) {
+            filename += ".md";
+        }
+
+        // Replace generic names like download.md, chat.md, export.md with a formatted timestamped name
+        int dotIndex = filename.lastIndexOf('.');
+        String baseName = (dotIndex > 0) ? filename.substring(0, dotIndex).trim() : filename;
+        if (baseName.equalsIgnoreCase("download") || baseName.equalsIgnoreCase("chat") || baseName.equalsIgnoreCase("export") || baseName.equalsIgnoreCase("duckduckgo_chat") || baseName.equalsIgnoreCase("duck_ai_chat")) {
+            filename = "Duck_AI_Chat_" + timestamp + ".md";
+        }
+
+        return filename;
+    }
+
     private void saveBlobToFile(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
         if (base64Data.contains(",")) {
             base64Data = base64Data.split(",")[1];
@@ -1175,7 +1217,13 @@ public class MainActivity extends Activity {
             filename = URLUtilCompat.guessFileName(currentUrl, contentDisposition, mimetype);
         }
 
+        filename = formatMarkdownFilename(filename, mimetype);
+        if (filename.endsWith(".md")) {
+            mimetype = "text/markdown";
+        }
+
         final String finalFilename = filename;
+        final String finalMimetype = mimetype;
         try {
             Uri fileUri = null;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -1211,7 +1259,7 @@ public class MainActivity extends Activity {
                 final Uri finalUri = fileUri;
                 runOnUiThread(() -> {
                     Toast.makeText(MainActivity.this, getString(R.string.download) + " " + finalFilename, Toast.LENGTH_SHORT).show();
-                    showDownloadNotification(finalFilename, mimetype, finalUri);
+                    showDownloadNotification(finalFilename, finalMimetype, finalUri);
                 });
             }
         } catch (Exception e) {
@@ -1227,6 +1275,13 @@ public class MainActivity extends Activity {
         String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
         if (filename == null)
             filename = URLUtilCompat.guessFileName(url, contentDisposition, mimetype);
+
+        filename = formatMarkdownFilename(filename, mimetype);
+        if (filename.endsWith(".md")) {
+            mimetype = "text/markdown";
+            request.setMimeType(mimetype);
+        }
+
         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "duck.ai" + File.separator + filename);
         Toast.makeText(this, getString(R.string.download) + " " + filename, Toast.LENGTH_SHORT).show();
         DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);

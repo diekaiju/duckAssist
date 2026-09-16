@@ -13,6 +13,7 @@
 fdroiddata
 .externalNativeBuild
 .cxx
+.zip
 local.properties
 duck_ai_research.md
 # Keystores & Backups
