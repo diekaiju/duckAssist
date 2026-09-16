@@ -161,8 +161,13 @@ public class MainActivity extends Activity {
             "})();";
 
     private final String AUTO_FOCUS_JS = "(function() {" +
+            "  if (window.isVoiceChatActive) {" +
+            "    console.log('Voice chat active, suppressing auto focus');" +
+            "    return;" +
+            "  }" +
             "  console.log('Auto Focus: waiting for page progress to complete before triggering Ctrl+Shift+O');" +
             "  function sendShortcut() {" +
+            "    if (window.isVoiceChatActive) return;" +
             "    console.log('Dispatching Ctrl+Shift+O shortcut');" +
             "    var targets = [window, document, document.body, document.documentElement, document.activeElement];" +
             "    var events = ['keydown', 'keypress', 'keyup'];" +
@@ -195,6 +200,7 @@ public class MainActivity extends Activity {
             "    return (hasContent && loaderHidden) || document.querySelector('textarea, [contenteditable=\"true\"]') !== null;" +
             "  }" +
             "  function focusAndOpenKeyboard() {" +
+            "    if (window.isVoiceChatActive) return;" +
             "    var input = document.querySelector('textarea, [contenteditable=\"true\"], input[type=\"text\"]');" +
             "    if (input) {" +
             "      input.focus();" +
@@ -206,13 +212,15 @@ public class MainActivity extends Activity {
             "  }" +
             "  var attempts = 0;" +
             "  function checkAndFire() {" +
+            "    if (window.isVoiceChatActive) return true;" +
             "    attempts++;" +
             "    if (isPageReady() || attempts >= 25) {" +
+            "      if (window.isVoiceChatActive) return true;" +
             "      console.log('Page ready (attempt ' + attempts + '), firing Ctrl+Shift+O');" +
             "      sendShortcut();" +
-            "      setTimeout(sendShortcut, 400);" +
-            "      setTimeout(focusAndOpenKeyboard, 600);" +
-            "      setTimeout(focusAndOpenKeyboard, 1200);" +
+            "      setTimeout(function() { if (!window.isVoiceChatActive) sendShortcut(); }, 400);" +
+            "      setTimeout(function() { if (!window.isVoiceChatActive) focusAndOpenKeyboard(); }, 600);" +
+            "      setTimeout(function() { if (!window.isVoiceChatActive) focusAndOpenKeyboard(); }, 1200);" +
             "      return true;" +
             "    }" +
             "    return false;" +
@@ -252,9 +260,189 @@ public class MainActivity extends Activity {
             "            Android.setSwipeEnabled(isAtTop);" +
             "        }" +
             "    }, true);" +
+            "    document.addEventListener('click', function(e) {" +
+            "        var btn = e.target && e.target.closest('button, [role=\"button\"], a');" +
+            "        if (btn) {" +
+            "            var text = (btn.innerText || btn.textContent || '').toLowerCase();" +
+            "            var hasVoiceSvg = btn.querySelector('path[d*=\"M5.625 0c.345 0 .625.28\"]');" +
+            "            if (hasVoiceSvg || text.includes('voice chat')) {" +
+            "                window.isVoiceChatActive = true;" +
+            "            }" +
+            "        }" +
+            "    }, true);" +
+            "})();";
+
+    private final String RTL_RESOLVER_JS = "(function() {" +
+            "    if (window.__aiRtlResolverInjected) {" +
+            "        if (typeof window.__aiRtlFix === 'function') window.__aiRtlFix();" +
+            "        return;" +
+            "    }" +
+            "    window.__aiRtlResolverInjected = true;" +
+            "    console.log('[ai-rtl-resolver] Initializing DuckAI RTL resolver');" +
+            "    function injectStyles() {" +
+            "        if (document.getElementById('ai-rtl-resolver-style')) return;" +
+            "        var style = document.createElement('style');" +
+            "        style.id = 'ai-rtl-resolver-style';" +
+            "        style.textContent = \"@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap'); \" +" +
+            "            \".rtl, [dir=\\\"rtl\\\"], .vazir, .user-message-bubble-color { font-family: 'Vazirmatn', 'Segoe UI', Tahoma, Arial, sans-serif !important; } \" +" +
+            "            \"[dir=\\\"rtl\\\"] { direction: rtl !important; text-align: right !important; } \" +" +
+            "            \"[dir=\\\"ltr\\\"] { direction: ltr !important; text-align: left !important; } \" +" +
+            "            \"[dir=\\\"rtl\\\"] ul, [dir=\\\"rtl\\\"] ol { padding-right: 1.5em !important; padding-left: 0 !important; } \" +" +
+            "            \"[dir=\\\"rtl\\\"] blockquote { border-right: 4px solid #ccc !important; border-left: none !important; padding-right: 12px !important; padding-left: 0 !important; }\";" +
+            "        (document.head || document.documentElement).appendChild(style);" +
+            "    }" +
+            "    var PERSIAN_WEIGHT_PERCENTAGE = 30;" +
+            "    var PERSIAN_SCRIPT_REGEX = /[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF]/;" +
+            "    function isEmojiLike(char) {" +
+            "        try { return /[\\p{Emoji}\\p{Emoji_Presentation}]/u.test(char); } catch(e) { return false; }" +
+            "    }" +
+            "    function isIgnorableChar(char) {" +
+            "        return /[\\d\\s\\u200E\\u200F\\u200B#@$%^&*()\\-+=_{}[\\]\\\\|:;\"'<>,.?/~`!\\u00AB\\u00BB]/.test(char);" +
+            "    }" +
+            "    function isRtlScriptChar(char) {" +
+            "        return PERSIAN_SCRIPT_REGEX.test(char);" +
+            "    }" +
+            "    var graphemeSegmenter;" +
+            "    function segmentGraphemes(text) {" +
+            "        if (typeof Intl !== 'undefined' && Intl.Segmenter) {" +
+            "            graphemeSegmenter = graphemeSegmenter || new Intl.Segmenter('en', { granularity: 'grapheme' });" +
+            "            return graphemeSegmenter.segment(text);" +
+            "        }" +
+            "        return Array.from(text).map(function(ch) { return { segment: ch }; });" +
+            "    }" +
+            "    function detectParagraphDirection(text) {" +
+            "        var trimmed = text.trim();" +
+            "        if (trimmed.length === 0) return 'ltr';" +
+            "        var rtlCount = 0;" +
+            "        var ltrCount = 0;" +
+            "        var sawMeaningfulChar = false;" +
+            "        for (var seg of segmentGraphemes(trimmed)) {" +
+            "            var char = seg.segment;" +
+            "            if (isEmojiLike(char) || isIgnorableChar(char)) continue;" +
+            "            var isRtl = isRtlScriptChar(char);" +
+            "            if (!sawMeaningfulChar) {" +
+            "                if (isRtl) return 'rtl';" +
+            "                sawMeaningfulChar = true;" +
+            "            }" +
+            "            if (isRtl) rtlCount++;" +
+            "            else ltrCount++;" +
+            "        }" +
+            "        var totalRelevant = rtlCount + ltrCount;" +
+            "        if (totalRelevant === 0) return 'ltr';" +
+            "        var rtlPercentage = (rtlCount / totalRelevant) * 100;" +
+            "        return rtlPercentage > PERSIAN_WEIGHT_PERCENTAGE ? 'rtl' : 'ltr';" +
+            "    }" +
+            "    function setElementDirection(element, direction) {" +
+            "        if (!element || element.getAttribute('dir') === direction) return;" +
+            "        element.setAttribute('dir', direction);" +
+            "    }" +
+            "    var directionCache = new WeakMap();" +
+            "    function getElementText(element) {" +
+            "        if (element instanceof HTMLTextAreaElement || element.tagName === 'TEXTAREA' || element.tagName === 'INPUT') {" +
+            "            return element.value;" +
+            "        }" +
+            "        return element.textContent || '';" +
+            "    }" +
+            "    var LTR_ONLY_SELECTOR = 'pre, code, .code-block, [id^=\"heading-\"][id*=\"assistant-message\"], .katex, .katex-html';" +
+            "    var APPLY_DIRECTION_SELECTOR = '[name=\"user-prompt\"], [data-testid=\"user-message\"] p, [id*=\"assistant-message\"]:not([id^=\"heading-\"]) p';" +
+            "    var TABLES_SELECTOR = 'table';" +
+            "    function applyDetectedDirection(elements, getText) {" +
+            "        for (var i = 0; i < elements.length; i++) {" +
+            "            var element = elements[i];" +
+            "            var text = getText(element);" +
+            "            var cached = directionCache.get(element);" +
+            "            var direction;" +
+            "            if (cached !== undefined && cached.text === text) {" +
+            "                direction = cached.direction;" +
+            "            } else {" +
+            "                direction = detectParagraphDirection(text);" +
+            "                directionCache.set(element, { text: text, direction: direction });" +
+            "            }" +
+            "            setElementDirection(element, direction);" +
+            "        }" +
+            "    }" +
+            "    function applyTableDirection(tables) {" +
+            "        for (var t = 0; t < tables.length; t++) {" +
+            "            var table = tables[t];" +
+            "            var text = '';" +
+            "            var cells = table.querySelectorAll('th, td');" +
+            "            for (var c = 0; c < cells.length; c++) {" +
+            "                text += getElementText(cells[c]);" +
+            "            }" +
+            "            var tableDir = detectParagraphDirection(text);" +
+            "            if (tableDir === 'rtl') {" +
+            "                for (var c = 0; c < cells.length; c++) {" +
+            "                    setElementDirection(cells[c], tableDir);" +
+            "                    cells[c].style.textAlign = 'right';" +
+            "                }" +
+            "            }" +
+            "        }" +
+            "    }" +
+            "    function forceLtrDirection(elements) {" +
+            "        for (var i = 0; i < elements.length; i++) {" +
+            "            setElementDirection(elements[i], 'ltr');" +
+            "        }" +
+            "    }" +
+            "    function fixDuckaiDirection() {" +
+            "        applyDetectedDirection(document.querySelectorAll(APPLY_DIRECTION_SELECTOR), getElementText);" +
+            "        applyTableDirection(document.querySelectorAll(TABLES_SELECTOR));" +
+            "        forceLtrDirection(document.querySelectorAll(LTR_ONLY_SELECTOR));" +
+            "    }" +
+            "    window.__aiRtlFix = fixDuckaiDirection;" +
+            "    document.addEventListener('input', function(e) {" +
+            "        if (e.target && (e.target.matches && e.target.matches('[name=\"user-prompt\"]') || e.target.tagName === 'TEXTAREA')) {" +
+            "            var dir = detectParagraphDirection(e.target.value);" +
+            "            setElementDirection(e.target, dir);" +
+            "        }" +
+            "    }, true);" +
+            "    var mutationCallbacks = [fixDuckaiDirection];" +
+            "    var bodyObserver;" +
+            "    var pendingFrame;" +
+            "    function flushMutationCallbacks() {" +
+            "        pendingFrame = undefined;" +
+            "        for (var i = 0; i < mutationCallbacks.length; i++) {" +
+            "            try { mutationCallbacks[i](); } catch (err) { console.error('[ai-rtl-resolver] callback error', err); }" +
+            "        }" +
+            "        if (bodyObserver) bodyObserver.takeRecords();" +
+            "    }" +
+            "    function scheduleFlush() {" +
+            "        if (pendingFrame !== undefined) return;" +
+            "        pendingFrame = requestAnimationFrame(flushMutationCallbacks);" +
+            "    }" +
+            "    function observeBodyMutations() {" +
+            "        var body = document.body || document.documentElement;" +
+            "        if (!body) return;" +
+            "        bodyObserver = new MutationObserver(scheduleFlush);" +
+            "        bodyObserver.observe(body, { childList: true, subtree: true });" +
+            "        window.__aiRtlObserver = bodyObserver;" +
+            "    }" +
+            "    injectStyles();" +
+            "    fixDuckaiDirection();" +
+            "    observeBodyMutations();" +
+            "    if (!bodyObserver && document.readyState === 'loading') {" +
+            "        document.addEventListener('DOMContentLoaded', function() {" +
+            "            injectStyles();" +
+            "            fixDuckaiDirection();" +
+            "            observeBodyMutations();" +
+            "        });" +
+            "    }" +
+            "})();";
+
+    private final String RTL_CLEANUP_JS = "(function() {" +
+            "    window.__aiRtlResolverInjected = false;" +
+            "    if (window.__aiRtlObserver) {" +
+            "        window.__aiRtlObserver.disconnect();" +
+            "        window.__aiRtlObserver = null;" +
+            "    }" +
+            "    var style = document.getElementById('ai-rtl-resolver-style');" +
+            "    if (style) style.remove();" +
+            "    document.querySelectorAll('[dir=\"rtl\"]').forEach(function(el) {" +
+            "        el.removeAttribute('dir');" +
+            "    });" +
             "})();";
 
     private final String VOICE_JS = "(function() {" +
+            "  window.isVoiceChatActive = true;" +
             "  console.log('Voice Chat Trigger Started');" +
             "  function tryClick() {" +
             "    var sidebarPath = document.querySelector('path[d*=\"M9.41 10.125a.625.625 0 1 1 0 1.25H1.624\"]');" +
@@ -972,7 +1160,8 @@ public class MainActivity extends Activity {
                         obj.put("use_drawer_shared", prefs.getBoolean("use_drawer_shared", true));
                         obj.put("trigger_voice_assistant", prefs.getBoolean("trigger_voice_assistant", true));
                         obj.put("continue_last_chat", prefs.getBoolean("continue_last_chat", false));
-                        obj.put("auto_focus_keyboard", prefs.getBoolean("auto_focus_keyboard", false));
+                        obj.put("auto_focus_keyboard", prefs.getBoolean("auto_focus_keyboard", true));
+                        obj.put("rtl_resolver", prefs.getBoolean("rtl_resolver", false));
                         obj.put("prompt_on_launch", prefs.getBoolean("prompt_on_launch", false));
                         obj.put("ask_duck_suffix", prefs.getString("ask_duck_suffix", ""));
                         obj.put("shared_doc_suffix", prefs.getString("shared_doc_suffix", ""));
@@ -986,7 +1175,7 @@ public class MainActivity extends Activity {
                 public void saveSettings(String jsonStr) {
                     try {
                         org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", false);
+                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", true);
                         boolean promptLaunch = obj.optBoolean("prompt_on_launch", false);
                         if (autoFocus) {
                             promptLaunch = false;
@@ -994,16 +1183,28 @@ public class MainActivity extends Activity {
                             autoFocus = false;
                         }
                         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                        boolean oldRtl = prefs.getBoolean("rtl_resolver", false);
+                        boolean newRtl = obj.optBoolean("rtl_resolver", false);
                         prefs.edit()
                              .putBoolean("use_drawer_assistant", obj.optBoolean("use_drawer_assistant", true))
                              .putBoolean("use_drawer_shared", obj.optBoolean("use_drawer_shared", true))
                              .putBoolean("trigger_voice_assistant", obj.optBoolean("trigger_voice_assistant", true))
                              .putBoolean("continue_last_chat", obj.optBoolean("continue_last_chat", false))
                              .putBoolean("auto_focus_keyboard", autoFocus)
+                             .putBoolean("rtl_resolver", newRtl)
                              .putBoolean("prompt_on_launch", promptLaunch)
                              .putString("ask_duck_suffix", obj.optString("ask_duck_suffix", ""))
                              .putString("shared_doc_suffix", obj.optString("shared_doc_suffix", ""))
                              .apply();
+                        if (newRtl != oldRtl && chatWebView != null) {
+                            runOnUiThread(() -> {
+                                if (newRtl) {
+                                    safeEvaluateJavascript(chatWebView, RTL_RESOLVER_JS);
+                                } else {
+                                    safeEvaluateJavascript(chatWebView, RTL_CLEANUP_JS);
+                                }
+                            });
+                        }
                         runOnUiThread(() -> {
                             dialog.dismiss();
                             Toast.makeText(MainActivity.this, "Settings saved successfully", Toast.LENGTH_SHORT).show();
@@ -1017,7 +1218,7 @@ public class MainActivity extends Activity {
                 public void saveSettingsAuto(String jsonStr) {
                     try {
                         org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", false);
+                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", true);
                         boolean promptLaunch = obj.optBoolean("prompt_on_launch", false);
                         if (autoFocus) {
                             promptLaunch = false;
@@ -1025,16 +1226,28 @@ public class MainActivity extends Activity {
                             autoFocus = false;
                         }
                         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                        boolean oldRtl = prefs.getBoolean("rtl_resolver", false);
+                        boolean newRtl = obj.optBoolean("rtl_resolver", false);
                         prefs.edit()
                              .putBoolean("use_drawer_assistant", obj.optBoolean("use_drawer_assistant", true))
                              .putBoolean("use_drawer_shared", obj.optBoolean("use_drawer_shared", true))
                              .putBoolean("trigger_voice_assistant", obj.optBoolean("trigger_voice_assistant", true))
                              .putBoolean("continue_last_chat", obj.optBoolean("continue_last_chat", false))
                              .putBoolean("auto_focus_keyboard", autoFocus)
+                             .putBoolean("rtl_resolver", newRtl)
                              .putBoolean("prompt_on_launch", promptLaunch)
                              .putString("ask_duck_suffix", obj.optString("ask_duck_suffix", ""))
                              .putString("shared_doc_suffix", obj.optString("shared_doc_suffix", ""))
                              .apply();
+                        if (newRtl != oldRtl && chatWebView != null) {
+                            runOnUiThread(() -> {
+                                if (newRtl) {
+                                    safeEvaluateJavascript(chatWebView, RTL_RESOLVER_JS);
+                                } else {
+                                    safeEvaluateJavascript(chatWebView, RTL_CLEANUP_JS);
+                                }
+                            });
+                        }
                     } catch (Exception e) {
                         Log.e(TAG, "Error auto-saving settings", e);
                     }
@@ -1668,25 +1881,30 @@ public class MainActivity extends Activity {
             }
         } else if (Intent.ACTION_ASSIST.equals(action)) {
             Log.d(TAG, "Assistance shortcut triggered");
+            pendingAutoFocus = false;
             SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
             boolean triggerVoice = prefs.getBoolean("trigger_voice_assistant", true);
             if (triggerVoice) {
+                pendingVoiceChat = true;
                 String currentUrl = chatWebView.getUrl();
                 if (currentUrl != null && currentUrl.startsWith("https://duck.ai")) {
+                    safeEvaluateJavascript(chatWebView, "window.isVoiceChatActive = true;");
                     chatWebView.evaluateJavascript(VOICE_JS, null);
                 } else {
-                    pendingVoiceChat = true;
                     chatWebView.loadUrl("https://duck.ai/");
                 }
             } else {
+                pendingVoiceChat = false;
                 if (chatWebView.getUrl() == null || chatWebView.getUrl().isEmpty()
                         || chatWebView.getUrl().equals("about:blank")) {
                     chatWebView.loadUrl("https://duck.ai/");
                 }
             }
         } else if (Intent.ACTION_MAIN.equals(action) || action == null) {
+            pendingVoiceChat = false;
+            safeEvaluateJavascript(chatWebView, "window.isVoiceChatActive = false;");
             SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-            boolean autoFocus = prefs.getBoolean("auto_focus_keyboard", false);
+            boolean autoFocus = prefs.getBoolean("auto_focus_keyboard", true);
             if (autoFocus) {
                 String currentUrl = chatWebView.getUrl();
                 if (currentUrl != null && currentUrl.startsWith("https://duck.ai")) {
@@ -1824,6 +2042,10 @@ public class MainActivity extends Activity {
             safeEvaluateJavascript(view, CLIPBOARD_JS);
             safeEvaluateJavascript(view, IMAGE_ZOOM_MONITOR_JS);
             safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
+            SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            if (prefs.getBoolean("rtl_resolver", false)) {
+                safeEvaluateJavascript(view, RTL_RESOLVER_JS);
+            }
         }
 
         @Override
@@ -1835,7 +2057,10 @@ public class MainActivity extends Activity {
             safeEvaluateJavascript(view, CLIPBOARD_JS);
             safeEvaluateJavascript(view, IMAGE_ZOOM_MONITOR_JS);
             SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-            if (pendingAutoFocus || prefs.getBoolean("auto_focus_keyboard", false)) {
+            if (prefs.getBoolean("rtl_resolver", false)) {
+                safeEvaluateJavascript(view, RTL_RESOLVER_JS);
+            }
+            if (!pendingVoiceChat && (pendingAutoFocus || prefs.getBoolean("auto_focus_keyboard", true))) {
                 safeEvaluateJavascript(view, AUTO_FOCUS_JS);
                 pendingAutoFocus = false;
             }
@@ -1848,6 +2073,7 @@ public class MainActivity extends Activity {
                 safeEvaluateJavascript(view, CONTINUE_CHAT_JS);
             }
             if (pendingVoiceChat) {
+                safeEvaluateJavascript(view, "window.isVoiceChatActive = true;");
                 safeEvaluateJavascript(view,
                         "setTimeout(function() {" +
                                 VOICE_JS +
@@ -1896,10 +2122,14 @@ public class MainActivity extends Activity {
                 safeEvaluateJavascript(view, CLIPBOARD_JS);
                 safeEvaluateJavascript(view, SETTINGS_INJECT_JS);
                 safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
+                SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                if (prefs.getBoolean("rtl_resolver", false)) {
+                    safeEvaluateJavascript(view, RTL_RESOLVER_JS);
+                }
             }
             if (newProgress == 100) {
                 SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-                if (prefs.getBoolean("auto_focus_keyboard", false)) {
+                if (!pendingVoiceChat && prefs.getBoolean("auto_focus_keyboard", true)) {
                     safeEvaluateJavascript(view, AUTO_FOCUS_JS);
                 }
             }

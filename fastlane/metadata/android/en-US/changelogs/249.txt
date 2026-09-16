@@ -1,0 +1,4 @@
+- Added RTL text direction support (ai-rtl-resolver) for Persian, Arabic, and Urdu text in Duck.ai (configurable in Settings).
+- Safe Mode: Added fallback to clean Duck.ai WebView if tweak scripts fail or crash.
+- Auto Focus & keyboard shortcut optimizations on page launch.
+- Fixed an issue where images were not displaying properly in Saved Chats.

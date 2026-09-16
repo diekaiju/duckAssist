@@ -20,3 +20,4 @@ duck_ai_research.md
 *.jks
 *.keystore
 /keystore_backup/
+.temp
