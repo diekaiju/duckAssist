@@ -207,11 +207,16 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            min-height: 56px;
         }
 
         .details-title-container {
             flex: 1;
             min-width: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .details-title {
@@ -220,11 +225,18 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            display: block;
+            width: 100%;
         }
 
         .details-subtitle {
             font-size: 11px;
             color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+            width: 100%;
         }
 
         .messages-container {
@@ -1421,9 +1433,10 @@
                 const lastMsg = chat.messages[chat.messages.length - 1];
                 const previewText = lastMsg ? (lastMsg.content || lastMsg.message || lastMsg.text || "No text") : "No messages";
 
+                const cleanTitle = (chat.title || "Untitled Chat").replace(/[\r\n]+/g, ' ').trim();
                 item.innerHTML = `
                     <div class="chat-item-header">
-                        <span class="chat-title">${escapeHTML(chat.title)}</span>
+                        <span class="chat-title" title="${escapeHTML(cleanTitle)}">${escapeHTML(cleanTitle)}</span>
                         <span class="chat-date">${formatDate(chat.createdAt)}</span>
                     </div>
                     <div class="chat-preview">${escapeHTML(previewText)}</div>
@@ -1534,10 +1547,18 @@
                 const msgs = Array.isArray(chat.messages) ? chat.messages : [];
                 
                 const titleEl = document.getElementById('detailsTitle');
-                if (titleEl) titleEl.innerText = chat.title || "Untitled Chat";
+                if (titleEl) {
+                    const cleanTitle = (chat.title || "Untitled Chat").replace(/[\r\n]+/g, ' ').trim();
+                    titleEl.innerText = cleanTitle;
+                    titleEl.title = cleanTitle;
+                }
                 
                 const subtitleEl = document.getElementById('detailsSubtitle');
-                if (subtitleEl) subtitleEl.innerText = `${formatModelName(chat.model)} • ${msgs.length} messages`;
+                if (subtitleEl) {
+                    const cleanSubtitle = `${formatModelName(chat.model)} • ${msgs.length} messages`.replace(/[\r\n]+/g, ' ').trim();
+                    subtitleEl.innerText = cleanSubtitle;
+                    subtitleEl.title = cleanSubtitle;
+                }
 
                 const container = document.getElementById('messagesContainer');
                 if (container) {
