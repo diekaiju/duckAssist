@@ -865,7 +865,7 @@ public class MainActivity extends Activity {
 
         WebSettings webSettings = chatWebView.getSettings();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            WebView.setWebContentsDebuggingEnabled(true);
+            WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
         }
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
