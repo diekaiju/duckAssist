@@ -21,3 +21,4 @@ duck_ai_research.md
 *.keystore
 /keystore_backup/
 .temp
+*.yml
