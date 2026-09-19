@@ -1,0 +1,13 @@
+<resources>
+    <string name="error_microsoft_google">Inloggen via een account van Google, Apple of Microsoft wordt niet ondersteund</string>
+    <string name="error_copy">Selecteer de tekst handmatig om deze te kopiëren</string>
+    <!-- StarDialog -->
+    <string name="dialog_OK_button">OK</string>
+    <string name="dialog_NO_button">Nee</string>
+    <string name="dialog_Later_button">Misschien later</string>
+    <string name="dialog_StarOnGitHub">Vind je deze app nuttig? Geef dan een ster op GitHub of trakteer de ontwikkelaar op een kop koffie via PayPal.</string>
+    <string name="download">Download gestart:</string>
+    <string name="all_urls">Alle URL's toegestaan</string>
+    <string name="urls_restricted">Toegestane URL's beperkt</string>
+    <string name="url_copied">gekopieerd naar klembord</string>
+</resources>
