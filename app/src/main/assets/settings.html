@@ -331,7 +331,7 @@
                     <div class="setting-desc">Automatically focus the chat input box and open the keyboard when app opens</div>
                 </div>
                 <label class="switch">
-                    <input type="checkbox" id="auto_focus_keyboard" checked>
+                    <input type="checkbox" id="auto_focus_keyboard">
                     <span class="slider"></span>
                 </label>
             </div>
@@ -380,6 +380,16 @@
                     <div class="setting-desc">Browse and view all your saved chat conversations offline.</div>
                 </div>
                 <button type="button" class="action-btn" onclick="openChatsViewer()">View</button>
+            </div>
+
+            <div class="section-title">Custom Scripts</div>
+
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">User Scripts</div>
+                    <div class="setting-desc">Add, edit, enable or disable custom JavaScript & UserScripts for Duck.ai</div>
+                </div>
+                <button type="button" class="action-btn" onclick="openScriptsManager()">Scripts</button>
             </div>
         </form>
     </div>
@@ -439,7 +449,7 @@
                     document.getElementById('use_drawer_shared').checked = settings.use_drawer_shared;
                     document.getElementById('trigger_voice_assistant').checked = settings.trigger_voice_assistant;
                     document.getElementById('continue_last_chat').checked = settings.continue_last_chat || false;
-                    document.getElementById('auto_focus_keyboard').checked = settings.auto_focus_keyboard !== undefined ? settings.auto_focus_keyboard : true;
+                    document.getElementById('auto_focus_keyboard').checked = settings.auto_focus_keyboard !== undefined ? settings.auto_focus_keyboard : false;
                     const rtlResolverEl = document.getElementById('rtl_resolver');
                     if (rtlResolverEl) {
                         rtlResolverEl.checked = settings.rtl_resolver || false;
@@ -515,6 +525,12 @@
         function openChatsViewer() {
             if (typeof AndroidSettings !== 'undefined' && AndroidSettings.openChatsViewer) {
                 AndroidSettings.openChatsViewer();
+            }
+        }
+
+        function openScriptsManager() {
+            if (typeof AndroidSettings !== 'undefined' && AndroidSettings.openScriptsManager) {
+                AndroidSettings.openScriptsManager();
             }
         }
     </script>

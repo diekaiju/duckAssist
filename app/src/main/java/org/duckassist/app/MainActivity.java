@@ -29,6 +29,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+import android.widget.EditText;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import androidx.core.content.FileProvider;
@@ -88,8 +89,10 @@ public class MainActivity extends Activity {
     private boolean pendingAutoFocus = false;
     private boolean pendingContinueLastChat = false;
     private Uri pendingSharedFileUri = null;
+    private java.util.List<Uri> pendingSharedFileUris = null;
     private static boolean isSafeMode = false;
     private boolean isImageZoomActive = false;
+    private boolean hasInjectedProgressJs = false;
 
     private void safeEvaluateJavascript(WebView view, String script) {
         if (isSafeMode || view == null || script == null) return;
@@ -122,17 +125,110 @@ public class MainActivity extends Activity {
 
     private static final int DOWNLOAD_PERMISSION_REQUEST_CODE = 456;
     private final String BLOB_JS = "(function() {" +
-            "    if (window.blobHandlerInjected) return;" +
-            "    window.blobHandlerInjected = true;" +
-            "    window.blobMap = window.blobMap || new Map();" +
-            "    const oC = URL.createObjectURL;" +
-            "    URL.createObjectURL = function(b) {" +
-            "        const u = oC.call(URL, b);" +
-            "        if (b instanceof Blob) window.blobMap.set(u, b);" +
-            "        console.log('Blob created: ' + u);" +
-            "        return u;" +
-            "    };" +
-            "    console.log('Blob Handler Patch Active');" +
+            "    if (!window.blobHandlerInjected) {" +
+            "        window.blobHandlerInjected = true;" +
+            "        window.blobMap = window.blobMap || new Map();" +
+            "        const oC = URL.createObjectURL;" +
+            "        URL.createObjectURL = function(b) {" +
+            "            const u = oC.call(URL, b);" +
+            "            if (b instanceof Blob) window.blobMap.set(u, b);" +
+            "            console.log('Blob created: ' + u);" +
+            "            return u;" +
+            "        };" +
+            "        console.log('Blob Handler Patch Active');" +
+            "    }" +
+            "    if (!window.idbImageFallbackInjected && typeof IDBDatabase !== 'undefined') {" +
+            "        window.idbImageFallbackInjected = true;" +
+            "        const origTx = IDBDatabase.prototype.transaction;" +
+            "        window.__duckImgStore = window.__duckImgStore || new Map();" +
+            "        function createFakeReq(res) {" +
+            "            var listeners = {};" +
+            "            var req = {" +
+            "                result: res," +
+            "                error: null," +
+            "                readyState: 'done'," +
+            "                onsuccess: null," +
+            "                onerror: null," +
+            "                addEventListener: function(type, cb) {" +
+            "                    if (!listeners[type]) listeners[type] = [];" +
+            "                    listeners[type].push(cb);" +
+            "                }," +
+            "                removeEventListener: function(type, cb) {" +
+            "                    if (listeners[type]) listeners[type] = listeners[type].filter(function(fn) { return fn !== cb; });" +
+            "                }" +
+            "            };" +
+            "            setTimeout(function() {" +
+            "                var evt = { type: 'success', target: req, currentTarget: req };" +
+            "                if (typeof req.onsuccess === 'function') { try { req.onsuccess.call(req, evt); } catch(e){} }" +
+            "                if (listeners['success']) { listeners['success'].forEach(function(fn) { try { fn.call(req, evt); } catch(e){} }); }" +
+            "            }, 0);" +
+            "            return req;" +
+            "        }" +
+            "        IDBDatabase.prototype.transaction = function(storeNames, mode) {" +
+            "            var names = Array.isArray(storeNames) ? storeNames : [storeNames];" +
+            "            if (names.indexOf('chat-images') !== -1 && !this.objectStoreNames.contains('chat-images')) {" +
+            "                console.warn('[DuckAssist] Providing fallback for missing chat-images store');" +
+            "                var storeMap = window.__duckImgStore;" +
+            "                var txListeners = {};" +
+            "                var fakeTx = {" +
+            "                    oncomplete: null," +
+            "                    onerror: null," +
+            "                    onabort: null," +
+            "                    abort: function() {}," +
+            "                    addEventListener: function(type, cb) {" +
+            "                        if (!txListeners[type]) txListeners[type] = [];" +
+            "                        txListeners[type].push(cb);" +
+            "                    }," +
+            "                    removeEventListener: function(type, cb) {" +
+            "                        if (txListeners[type]) txListeners[type] = txListeners[type].filter(function(fn) { return fn !== cb; });" +
+            "                    }," +
+            "                    objectStore: function(name) {" +
+            "                        return {" +
+            "                            add: function(val) {" +
+            "                                var key = (val && val.uuid) ? val.uuid : ('img_' + Date.now());" +
+            "                                if (val) storeMap.set(key, val);" +
+            "                                return createFakeReq(key);" +
+            "                            }," +
+            "                            put: function(val) {" +
+            "                                var key = (val && val.uuid) ? val.uuid : ('img_' + Date.now());" +
+            "                                if (val) storeMap.set(key, val);" +
+            "                                return createFakeReq(key);" +
+            "                            }," +
+            "                            get: function(key) {" +
+            "                                return createFakeReq(storeMap.get(key));" +
+            "                            }," +
+            "                            getAll: function() {" +
+            "                                return createFakeReq(Array.from(storeMap.values()));" +
+            "                            }," +
+            "                            delete: function(key) {" +
+            "                                storeMap.delete(key);" +
+            "                                return createFakeReq(undefined);" +
+            "                            }," +
+            "                            clear: function() {" +
+            "                                storeMap.clear();" +
+            "                                return createFakeReq(undefined);" +
+            "                            }," +
+            "                            index: function(indexName) {" +
+            "                                return {" +
+            "                                    getAll: function(chatId) {" +
+            "                                        var arr = Array.from(storeMap.values()).filter(function(v) { return v && v.chatId === chatId; });" +
+            "                                        return createFakeReq(arr);" +
+            "                                    }" +
+            "                                };" +
+            "                            }" +
+            "                        };" +
+            "                    }" +
+            "                };" +
+            "                setTimeout(function() {" +
+            "                    var evt = { type: 'complete', target: fakeTx, currentTarget: fakeTx };" +
+            "                    if (typeof fakeTx.oncomplete === 'function') { try { fakeTx.oncomplete.call(fakeTx, evt); } catch(e){} }" +
+            "                    if (txListeners['complete']) { txListeners['complete'].forEach(function(fn) { try { fn.call(fakeTx, evt); } catch(e){} }); }" +
+            "                }, 5);" +
+            "                return fakeTx;" +
+            "            }" +
+            "            return origTx.apply(this, arguments);" +
+            "        };" +
+            "    }" +
             "})();";
 
     private final String IMAGE_ZOOM_MONITOR_JS = "(function() {" +
@@ -153,11 +249,11 @@ public class MainActivity extends Activity {
             "            }" +
             "        }" +
             "    };" +
-            "    var observer = new MutationObserver(check);" +
-            "    if (document.body) {" +
-            "        observer.observe(document.body, { childList: true, subtree: true, attributes: true });" +
+            "    var target = document.body || document.documentElement;" +
+            "    if (target) {" +
+            "        var observer = new MutationObserver(check);" +
+            "        observer.observe(target, { childList: true, subtree: true, attributes: true });" +
             "    }" +
-            "    setInterval(check, 500);" +
             "})();";
 
     private final String AUTO_FOCUS_JS = "(function() {" +
@@ -526,12 +622,15 @@ public class MainActivity extends Activity {
             "        return false;" +
             "    }" +
             "    if (!injectButton()) {" +
-            "        var observer = new MutationObserver(function(mutations) {" +
-            "            if (injectButton()) {" +
-            "                observer.disconnect();" +
-            "            }" +
-            "        });" +
-            "        observer.observe(document.body, { childList: true, subtree: true });" +
+            "        var target = document.body || document.documentElement;" +
+            "        if (target) {" +
+            "            var observer = new MutationObserver(function(mutations) {" +
+            "                if (injectButton()) {" +
+            "                    observer.disconnect();" +
+            "                }" +
+            "            });" +
+            "            observer.observe(target, { childList: true, subtree: true });" +
+            "        }" +
             "    }" +
             "})();";
 
@@ -619,12 +718,15 @@ public class MainActivity extends Activity {
 
     private String lastFetchedChatsJson = "{}";
     private android.app.Dialog chatsViewerDialog = null;
+    private android.app.Dialog scriptsManagerDialog = null;
     private boolean isRequestingViewer = false;
 
     private final String DUMP_CHATS_JS = "(function() {" +
-            "  function convertBlobs(obj) {" +
+            "  function convertBlobs(obj, depth, seen) {" +
+            "    depth = depth || 0;" +
+            "    seen = seen || new Set();" +
             "    return new Promise(function(resolve) {" +
-            "      if (!obj) return resolve(obj);" +
+            "      if (!obj || depth > 20) return resolve(obj);" +
             "      if (typeof Date !== 'undefined' && obj instanceof Date) {" +
             "        return resolve(obj.toISOString());" +
             "      }" +
@@ -640,22 +742,26 @@ public class MainActivity extends Activity {
             "      if (typeof ArrayBuffer !== 'undefined' && (obj instanceof ArrayBuffer || ArrayBuffer.isView(obj))) {" +
             "        try {" +
             "          let bytes = new Uint8Array(obj.buffer || obj);" +
-            "          let binary = '';" +
-            "          let len = bytes.byteLength;" +
-            "          for (let i = 0; i < len; i++) { binary += String.fromCharCode(bytes[i]); }" +
-            "          let base64 = btoa(binary);" +
-            "          resolve('data:image/jpeg;base64,' + base64);" +
+            "          let blob = new Blob([bytes]);" +
+            "          let reader = new FileReader();" +
+            "          reader.onloadend = function() { resolve(reader.result); };" +
+            "          reader.onerror = function() { resolve(null); };" +
+            "          reader.readAsDataURL(blob);" +
             "        } catch(e) { resolve(null); }" +
             "        return;" +
             "      }" +
             "      if (Array.isArray(obj)) {" +
-            "        var promises = obj.map(function(item) { return convertBlobs(item); });" +
+            "        if (seen.has(obj)) return resolve('[]');" +
+            "        seen.add(obj);" +
+            "        var promises = obj.map(function(item) { return convertBlobs(item, depth + 1, seen); });" +
             "        Promise.all(promises).then(resolve).catch(function() { resolve(obj); });" +
             "        return;" +
             "      }" +
             "      if (typeof obj === 'object') {" +
+            "        if (seen.has(obj)) return resolve('{}');" +
+            "        seen.add(obj);" +
             "        var keys = Object.keys(obj);" +
-            "        var promises = keys.map(function(k) { return convertBlobs(obj[k]); });" +
+            "        var promises = keys.map(function(k) { return convertBlobs(obj[k], depth + 1, seen); });" +
             "        Promise.all(promises).then(function(values) {" +
             "          var newObj = {};" +
             "          keys.forEach(function(k, idx) { newObj[k] = values[idx]; });" +
@@ -671,7 +777,9 @@ public class MainActivity extends Activity {
             "    let getDbs = (window.indexedDB && window.indexedDB.databases) ? window.indexedDB.databases() : Promise.resolve([]);" +
             "    getDbs.then(async (dbs) => {" +
             "      let dbNamesSet = new Set((dbs || []).map(d => d.name).filter(Boolean));" +
-            "      knownDbs.forEach(k => dbNamesSet.add(k));" +
+            "      if (dbNamesSet.size === 0) {" +
+            "        knownDbs.forEach(k => dbNamesSet.add(k));" +
+            "      }" +
             "      let dbNames = Array.from(dbNamesSet);" +
             "      let result = {};" +
             "      for (let dbName of dbNames) {" +
@@ -739,6 +847,16 @@ public class MainActivity extends Activity {
             "        });" +
             "        if (res && Object.keys(res).length > 0) result[dbName] = res;" +
             "      }" +
+            "      if (window.__duckImgStore && window.__duckImgStore.size > 0) {" +
+            "        result['savedAIChatData'] = result['savedAIChatData'] || {};" +
+            "        result['savedAIChatData']['chat-images'] = result['savedAIChatData']['chat-images'] || [];" +
+            "        for (let [k, item] of window.__duckImgStore.entries()) {" +
+            "          try {" +
+            "            let converted = await convertBlobs(item);" +
+            "            if (converted) result['savedAIChatData']['chat-images'].push(converted);" +
+            "          } catch(e) {}" +
+            "        }" +
+            "      }" +
             "      let localData = {};" +
             "      try {" +
             "        for (let i = 0; i < localStorage.length; i++) {" +
@@ -791,10 +909,6 @@ public class MainActivity extends Activity {
             "      }" +
             "    });" +
             "  }" +
-            "  try {" +
-            "    document.dispatchEvent(new Event('visibilitychange'));" +
-            "    window.dispatchEvent(new Event('pagehide'));" +
-            "  } catch(e) {}" +
             "  setTimeout(dump, 150);" +
             "})();";
 
@@ -874,8 +988,8 @@ public class MainActivity extends Activity {
         webSettings.setSupportZoom(true);
         webSettings.setBuiltInZoomControls(true);
         webSettings.setDisplayZoomControls(false);
-        webSettings.setAllowFileAccess(false);
-        webSettings.setAllowContentAccess(false);
+        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowContentAccess(true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             webSettings.setMediaPlaybackRequiresUserGesture(false);
         }
@@ -886,21 +1000,26 @@ public class MainActivity extends Activity {
         webSettings.setGeolocationEnabled(false);
 
         SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-        try {
-            lastFetchedChatsJson = ChatDatabaseHelper.getInstance(this).getCachedChatsJson();
-            if (lastFetchedChatsJson == null || lastFetchedChatsJson.equals("{}") || lastFetchedChatsJson.isEmpty()) {
-                String oldPrefsJson = prefs.getString("cached_chats_json", null);
-                if (oldPrefsJson != null && !oldPrefsJson.equals("{}") && !oldPrefsJson.isEmpty()) {
-                    lastFetchedChatsJson = oldPrefsJson;
-                    ChatDatabaseHelper.getInstance(this).saveCachedChatsJson(oldPrefsJson);
+        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                String cached = ChatDatabaseHelper.getInstance(MainActivity.this).getCachedChatsJson();
+                if (cached != null && !cached.equals("{}") && !cached.isEmpty()) {
+                    lastFetchedChatsJson = cached;
                 } else {
-                    lastFetchedChatsJson = "{}";
+                    SharedPreferences p = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                    String oldPrefsJson = p.getString("cached_chats_json", null);
+                    if (oldPrefsJson != null && !oldPrefsJson.equals("{}") && !oldPrefsJson.isEmpty()) {
+                        lastFetchedChatsJson = oldPrefsJson;
+                        ChatDatabaseHelper.getInstance(MainActivity.this).saveCachedChatsJson(oldPrefsJson);
+                    } else {
+                        lastFetchedChatsJson = "{}";
+                    }
                 }
+            } catch (Throwable t) {
+                Log.e(TAG, "Failed to load cached_chats_json in background", t);
+                lastFetchedChatsJson = "{}";
             }
-        } catch (Throwable t) {
-            Log.e(TAG, "Failed to load cached_chats_json from database, resetting to empty", t);
-            lastFetchedChatsJson = "{}";
-        }
+        });
         int savedZoom = prefs.getInt("text_zoom", 100);
         currentZoomLevel = (float) savedZoom;
         webSettings.setTextZoom(savedZoom);
@@ -955,7 +1074,7 @@ public class MainActivity extends Activity {
                 return;
             }
             if (checkDownloadPermissions()) {
-                startStandardDownload(url, userAgent, contentDisposition, mimetype, contentLength);
+                promptAndStartStandardDownload(url, userAgent, contentDisposition, mimetype, contentLength);
             } else {
                 pendingDownloadUrl = url;
                 pendingDownloadUserAgent = userAgent;
@@ -1127,7 +1246,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface
     public void processBlob(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
         if (checkDownloadPermissions()) {
-            saveBlobToFile(base64Data, mimetype, contentDisposition, currentUrl);
+            promptAndSaveBlob(base64Data, mimetype, contentDisposition, currentUrl);
         } else {
             isPendingBlob = true;
             pendingBlobData = base64Data;
@@ -1160,7 +1279,7 @@ public class MainActivity extends Activity {
                         obj.put("use_drawer_shared", prefs.getBoolean("use_drawer_shared", true));
                         obj.put("trigger_voice_assistant", prefs.getBoolean("trigger_voice_assistant", true));
                         obj.put("continue_last_chat", prefs.getBoolean("continue_last_chat", false));
-                        obj.put("auto_focus_keyboard", prefs.getBoolean("auto_focus_keyboard", true));
+                        obj.put("auto_focus_keyboard", prefs.getBoolean("auto_focus_keyboard", false));
                         obj.put("rtl_resolver", prefs.getBoolean("rtl_resolver", false));
                         obj.put("prompt_on_launch", prefs.getBoolean("prompt_on_launch", false));
                         obj.put("ask_duck_suffix", prefs.getString("ask_duck_suffix", ""));
@@ -1175,7 +1294,7 @@ public class MainActivity extends Activity {
                 public void saveSettings(String jsonStr) {
                     try {
                         org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", true);
+                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", false);
                         boolean promptLaunch = obj.optBoolean("prompt_on_launch", false);
                         if (autoFocus) {
                             promptLaunch = false;
@@ -1218,7 +1337,7 @@ public class MainActivity extends Activity {
                 public void saveSettingsAuto(String jsonStr) {
                     try {
                         org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", true);
+                        boolean autoFocus = obj.optBoolean("auto_focus_keyboard", false);
                         boolean promptLaunch = obj.optBoolean("prompt_on_launch", false);
                         if (autoFocus) {
                             promptLaunch = false;
@@ -1265,6 +1384,14 @@ public class MainActivity extends Activity {
                         fetchChatsAndShowViewer();
                     });
                 }
+
+                @JavascriptInterface
+                public void openScriptsManager() {
+                    runOnUiThread(() -> {
+                        dialog.dismiss();
+                        showScriptsManagerDialog();
+                    });
+                }
             }, "AndroidSettings");
 
             webView.loadUrl("file:///android_asset/settings.html");
@@ -1282,11 +1409,11 @@ public class MainActivity extends Activity {
 
     @JavascriptInterface
     public void onChatsFetched(String jsonStr) {
-        runOnUiThread(() -> {
+        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
             if (jsonStr == null || jsonStr.isEmpty() || jsonStr.equals("{}")) {
                 if (isRequestingViewer) {
                     isRequestingViewer = false;
-                    showChatsViewerDialog();
+                    runOnUiThread(this::showChatsViewerDialog);
                 }
                 return;
             }
@@ -1296,7 +1423,7 @@ public class MainActivity extends Activity {
                     Log.w(TAG, "Fetched chats root contains error, skipping overwrite: " + obj.getString("error"));
                     if (isRequestingViewer) {
                         isRequestingViewer = false;
-                        showChatsViewerDialog();
+                        runOnUiThread(this::showChatsViewerDialog);
                     }
                     return;
                 }
@@ -1304,7 +1431,7 @@ public class MainActivity extends Activity {
                 Log.w(TAG, "Fetched chats could not be parsed or caused OutOfMemoryError, skipping overwrite", e);
                 if (isRequestingViewer) {
                     isRequestingViewer = false;
-                    showChatsViewerDialog();
+                    runOnUiThread(this::showChatsViewerDialog);
                 }
                 return;
             }
@@ -1359,6 +1486,60 @@ public class MainActivity extends Activity {
                                 }
                             }
                         }
+
+                        // Merge indexedDB (never lose previous chats or images on partial dumps)
+                        org.json.JSONObject oldIdb = oldObj.optJSONObject("indexedDB");
+                        org.json.JSONObject newIdb = newObj.optJSONObject("indexedDB");
+                        if (oldIdb != null) {
+                            if (newIdb == null) {
+                                newObj.put("indexedDB", oldIdb);
+                            } else {
+                                java.util.Iterator<String> dbNames = oldIdb.keys();
+                                while (dbNames.hasNext()) {
+                                    String dbName = dbNames.next();
+                                    org.json.JSONObject oldStores = oldIdb.optJSONObject(dbName);
+                                    org.json.JSONObject newStores = newIdb.optJSONObject(dbName);
+                                    if (oldStores != null) {
+                                        if (newStores == null) {
+                                            newIdb.put(dbName, oldStores);
+                                        } else {
+                                            java.util.Iterator<String> storeNames = oldStores.keys();
+                                            while (storeNames.hasNext()) {
+                                                String sName = storeNames.next();
+                                                org.json.JSONArray oldItems = oldStores.optJSONArray(sName);
+                                                org.json.JSONArray newItems = newStores.optJSONArray(sName);
+                                                if (oldItems != null && oldItems.length() > 0) {
+                                                    if (newItems == null) {
+                                                        newStores.put(sName, oldItems);
+                                                    } else {
+                                                        java.util.Map<String, org.json.JSONObject> itemMap = new java.util.LinkedHashMap<>();
+                                                        for (int i = 0; i < oldItems.length(); i++) {
+                                                            org.json.JSONObject it = oldItems.optJSONObject(i);
+                                                            if (it != null) {
+                                                                String key = it.optString("chatId", it.optString("uuid", it.optString("id", it.optString("key", String.valueOf(i)))));
+                                                                itemMap.put(key, it);
+                                                            }
+                                                        }
+                                                        for (int i = 0; i < newItems.length(); i++) {
+                                                            org.json.JSONObject it = newItems.optJSONObject(i);
+                                                            if (it != null) {
+                                                                String key = it.optString("chatId", it.optString("uuid", it.optString("id", it.optString("key", String.valueOf(i)))));
+                                                                itemMap.put(key, it);
+                                                            }
+                                                        }
+                                                        org.json.JSONArray mergedArr = new org.json.JSONArray();
+                                                        for (org.json.JSONObject it : itemMap.values()) {
+                                                            mergedArr.put(it);
+                                                        }
+                                                        newStores.put(sName, mergedArr);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } catch (Throwable ignore) {}
                 }
                 finalJsonStr = newObj.toString();
@@ -1369,7 +1550,7 @@ public class MainActivity extends Activity {
             ChatDatabaseHelper.getInstance(MainActivity.this).saveCachedChatsJson(finalJsonStr);
             if (isRequestingViewer || (chatsViewerDialog != null && chatsViewerDialog.isShowing())) {
                 isRequestingViewer = false;
-                showChatsViewerDialog();
+                runOnUiThread(this::showChatsViewerDialog);
             }
         });
     }
@@ -1446,6 +1627,442 @@ public class MainActivity extends Activity {
         });
     }
 
+    private final String DEFAULT_SAMPLE_USER_SCRIPT = "// ==UserScript==\n" +
+            "// @name         Duck.ai Ultra Clean Unified\n" +
+            "// @namespace    http://tampermonkey.net/\n" +
+            "// @version      8.1\n" +
+            "// @description  Unified, clean split-screen with centered items and coordinated floating buttons.\n" +
+            "// @author       iJahangard (https://github.com/iJahangard)\n" +
+            "// @match        *://*.duck.ai/*\n" +
+            "// @match        *://*.duckduckgo.com/*\n" +
+            "// @run-at       document-idle\n" +
+            "// @grant        GM_addStyle\n" +
+            "// ==/UserScript==\n" +
+            "\n" +
+            "(function() {\n" +
+            "    'use strict';\n" +
+            "\n" +
+            "    GM_addStyle(`\n" +
+            "        /* Main Container */\n" +
+            "        .duck-main-box {\n" +
+            "            position: relative !important;\n" +
+            "            width: 100% !important;\n" +
+            "            max-width: 100% !important;\n" +
+            "            padding: 0 46px 0 0 !important;\n" +
+            "            margin-bottom: -6px !important;\n" +
+            "            box-sizing: border-box !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .duck-ta-row {\n" +
+            "            width: 100% !important;\n" +
+            "            margin: 0 !important;\n" +
+            "            padding: 0 !important;\n" +
+            "            display: block !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        textarea[name=\"user-prompt\"] {\n" +
+            "            width: 100% !important;\n" +
+            "            min-height: 40px !important;\n" +
+            "            max-height: 160px !important;\n" +
+            "            border-radius: 18px !important;\n" +
+            "            padding: 10px 15px !important;\n" +
+            "            margin: 0 !important;\n" +
+            "            box-sizing: border-box !important;\n" +
+            "            line-height: 1.4 !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        /* Floating buttons */\n" +
+            "        .duck-fab-btn, .duck-fab-4 {\n" +
+            "            position: absolute !important;\n" +
+            "            right: 0px !important;\n" +
+            "            width: 38px !important;\n" +
+            "            height: 38px !important;\n" +
+            "            border-radius: 50% !important;\n" +
+            "            display: flex !important;\n" +
+            "            justify-content: center !important;\n" +
+            "            align-items: center !important;\n" +
+            "            z-index: 10 !important;\n" +
+            "            transition: transform 0.2s ease, filter 0.2s ease !important;\n" +
+            "            box-sizing: border-box !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .duck-fab-btn {\n" +
+            "            background-color: var(--dynamic-send-bg, #3b82f6) !important;\n" +
+            "            color: var(--dynamic-send-color, #ffffff) !important;\n" +
+            "        }\n" +
+            "        .duck-fab-btn svg { color: #ffffff !important; }\n" +
+            "        .duck-fab-btn:hover, .duck-send-btn:hover, .duck-stop-btn:hover {\n" +
+            "            transform: scale(0.9) !important;\n" +
+            "            filter: brightness(1.2) !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .duck-fab-4 { bottom: 160px !important; padding: 0 !important; justify-content: right !important; }\n" +
+            "        .duck-fab-1 { bottom: 120px !important; }\n" +
+            "        .duck-fab-2 { bottom: 80px !important; }\n" +
+            "        .duck-fab-3 { bottom: 40px !important; }\n" +
+            "\n" +
+            "        .duck-send-btn, .duck-stop-btn {\n" +
+            "            position: absolute !important;\n" +
+            "            right: 0px !important;\n" +
+            "            bottom: -12px !important;\n" +
+            "            width: 40px !important;\n" +
+            "            height: 40px !important;\n" +
+            "            border-radius: 50% !important;\n" +
+            "            display: flex !important;\n" +
+            "            justify-content: center !important;\n" +
+            "            align-items: center !important;\n" +
+            "            z-index: 10 !important;\n" +
+            "            transition: transform 0.2s ease, filter 0.2s ease !important;\n" +
+            "            box-sizing: border-box !important;\n" +
+            "            margin: 0 !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .duck-stop-btn { background-color: #E60023 !important; }\n" +
+            "        .duck-stop-btn svg { color: #ffffff !important; }\n" +
+            "\n" +
+            "        .duck-send-btn { background-color: #DE5833 !important; }\n" +
+            "        .duck-send-btn svg { color: #ffffff !important; }\n" +
+            "\n" +
+            "        [data-testid=\"duckai-top-toolbar\"],\n" +
+            "        [data-testid=\"duckai-top-toolbar\"] > div {\n" +
+            "            height: 36px !important;\n" +
+            "            min-height: 38px !important;\n" +
+            "            max-height: 38px !important;\n" +
+            "            box-sizing: border-box !important;\n" +
+            "            align-items: right !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .TmiyHFYeTH6BRfiFO5eV, .WylRI_oUZA16s0qnjS1p {\n" +
+            "            width: 100% !important;\n" +
+            "            display: flex !important;\n" +
+            "            flex-direction: row !important;\n" +
+            "            flex-wrap: nowrap !important;\n" +
+            "            align-items: center !important;\n" +
+            "            justify-content: center !important;\n" +
+            "            text-align: center !important;\n" +
+            "            gap: 8px !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .TmiyHFYeTH6BRfiFO5eV > .pjSWjOTlZyJAUFYWwJd7,\n" +
+            "        .WylRI_oUZA16s0qnjS1p > .pjSWjOTlZyJAUFYWwJd7,\n" +
+            "        .WylRI_oUZA16s0qnjS1p .PLoPNq8ZrjT3PBQhCQ4Q,\n" +
+            "        .WylRI_oUZA16s0qnjS1p .sVQf5w9mw0rZOdrXmKsG,\n" +
+            "        .WylRI_oUZA16s0qnjS1p [data-testid=\"feedback-prompt\"] {\n" +
+            "            background-color: transparent !important;\n" +
+            "            width: auto !important;\n" +
+            "            margin: 0 !important;\n" +
+            "            display: flex !important;\n" +
+            "            flex: 0 0 auto !important;\n" +
+            "            align-items: center !important;\n" +
+            "            justify-content: center !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .TmiyHFYeTH6BRfiFO5eV button, .WylRI_oUZA16s0qnjS1p button {\n" +
+            "            float: none !important;\n" +
+            "            display: inline-flex !important;\n" +
+            "            align-items: center !important;\n" +
+            "            justify-content: center !important;\n" +
+            "            margin: 0 !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .WylRI_oUZA16s0qnjS1p button i, .WylRI_oUZA16s0qnjS1p button svg {\n" +
+            "            display: block !important;\n" +
+            "            margin: 0 !important;\n" +
+            "            flex-shrink: 0 !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .WylRI_oUZA16s0qnjS1p .sVQf5w9mw0rZOdrXmKsG > .pjSWjOTlZyJAUFYWwJd7 {\n" +
+            "            margin: 0 4px !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .DRAot9rDvc5ggNSzK6hY {\n" +
+            "            width: 80% !important;\n" +
+            "            display: flex !important;\n" +
+            "            margin-top: 20px !important;\n" +
+            "            align-items: center !important;\n" +
+            "            justify-content: center !important;\n" +
+            "            text-align: center !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .DRAot9rDvc5ggNSzK6hY > .BB8BdTLAPMS9cAdduzJV {\n" +
+            "            background-color: transparent !important;\n" +
+            "            display: flex !important;\n" +
+            "            flex-direction: row !important;\n" +
+            "            flex-wrap: nowrap !important;\n" +
+            "            align-items: center !important;\n" +
+            "            justify-content: center !important;\n" +
+            "            gap: 8px !important;\n" +
+            "            width: auto !important;\n" +
+            "            margin: 0 auto !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .DRAot9rDvc5ggNSzK6hY button {\n" +
+            "            height: 40px !important;\n" +
+            "            margin-right: 46px !important;\n" +
+            "            display: inline-flex !important;\n" +
+            "            flex-direction: row !important;\n" +
+            "            align-items: center !important;\n" +
+            "            justify-content: center !important;\n" +
+            "            flex: 0 0 auto !important;\n" +
+            "            white-space: nowrap !important;\n" +
+            "            float: none !important;\n" +
+            "        }\n" +
+            "\n" +
+            "        .DRAot9rDvc5ggNSzK6hY button svg {\n" +
+            "            display: inline-block !important;\n" +
+            "            width: 16px !important;\n" +
+            "            height: 16px !important;\n" +
+            "            margin-right: 8px !important;\n" +
+            "            vertical-align: middle !important;\n" +
+            "        }\n" +
+            "    `);\n" +
+            "\n" +
+            "    function getCommonAncestor(node1, node2) {\n" +
+            "        let parents = [];\n" +
+            "        let current = node1;\n" +
+            "        while (current) {\n" +
+            "            parents.push(current);\n" +
+            "            current = current.parentElement;\n" +
+            "        }\n" +
+            "        current = node2;\n" +
+            "        while (current) {\n" +
+            "            if (parents.includes(current)) return current;\n" +
+            "            current = current.parentElement;\n" +
+            "        }\n" +
+            "        return null;\n" +
+            "    }\n" +
+            "\n" +
+            "    function syncSendButtonStyles() {\n" +
+            "        const sendBtn = document.querySelector('button[aria-label=\"Send\"]');\n" +
+            "        if (sendBtn) {\n" +
+            "            const computedStyle = window.getComputedStyle(sendBtn);\n" +
+            "            const bgColor = computedStyle.backgroundColor;\n" +
+            "            if (bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {\n" +
+            "                document.documentElement.style.setProperty('--dynamic-send-bg', bgColor);\n" +
+            "                const rgb = bgColor.match(/\\d+/g);\n" +
+            "                if (rgb && rgb.length >= 3) {\n" +
+            "                    const r = parseInt(rgb[0]);\n" +
+            "                    const g = parseInt(rgb[1]);\n" +
+            "                    const b = parseInt(rgb[2]);\n" +
+            "                    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;\n" +
+            "                    const textColor = yiq >= 128 ? '#000000' : '#ffffff';\n" +
+            "                    document.documentElement.style.setProperty('--dynamic-send-color', textColor);\n" +
+            "                }\n" +
+            "            }\n" +
+            "        }\n" +
+            "    }\n" +
+            "\n" +
+            "    function optimizeLayout() {\n" +
+            "        const textarea = document.querySelector('textarea[name=\"user-prompt\"]');\n" +
+            "        const sendBtn = document.querySelector('button[aria-label=\"Send\"]');\n" +
+            "        const stopBtn = document.querySelector('button[aria-label=\"Stop generating\"]');\n" +
+            "        if (textarea && (sendBtn || stopBtn)) {\n" +
+            "            const activeActionBtn = sendBtn || stopBtn;\n" +
+            "            const mainBox = getCommonAncestor(textarea, activeActionBtn);\n" +
+            "            if (mainBox) {\n" +
+            "                mainBox.classList.add('duck-main-box');\n" +
+            "                Array.from(mainBox.children).forEach(child => {\n" +
+            "                    if (child.contains(textarea)) child.classList.add('duck-ta-row');\n" +
+            "                    if (child.contains(activeActionBtn)) child.classList.add('duck-tb-row');\n" +
+            "                });\n" +
+            "            }\n" +
+            "            const mapWrapper = (selector, classNames) => {\n" +
+            "                const btn = document.querySelector(selector);\n" +
+            "                if (btn && btn.parentElement) {\n" +
+            "                    classNames.split(' ').forEach(cls => btn.parentElement.classList.add(cls));\n" +
+            "                }\n" +
+            "            };\n" +
+            "            mapWrapper('button[data-testid=\"duckai-attach-button\"]', 'duck-fab-btn duck-fab-1');\n" +
+            "            mapWrapper('button[data-testid=\"duckai-tools-button\"]', 'duck-fab-btn duck-fab-2');\n" +
+            "            mapWrapper('button[data-testid=\"duckai-reasoning-button\"]', 'duck-fab-btn duck-fab-3');\n" +
+            "            mapWrapper('button[data-testid=\"model-picker-button\"]', 'duck-fab-4');\n" +
+            "            mapWrapper('button[aria-label=\"Send\"]', 'duck-send-btn');\n" +
+            "            mapWrapper('button[aria-label=\"Stop generating\"]', 'duck-stop-btn');\n" +
+            "            syncSendButtonStyles();\n" +
+            "        }\n" +
+            "    }\n" +
+            "\n" +
+            "    function setupAutoGrow() {\n" +
+            "        const textarea = document.querySelector('textarea[name=\"user-prompt\"]');\n" +
+            "        if (textarea && !textarea.dataset.autogrow) {\n" +
+            "            textarea.dataset.autogrow = \"true\";\n" +
+            "            const resize = () => {\n" +
+            "                textarea.style.height = '48px';\n" +
+            "                textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';\n" +
+            "            };\n" +
+            "            textarea.addEventListener('input', resize);\n" +
+            "            resize();\n" +
+            "        }\n" +
+            "    }\n" +
+            "\n" +
+            "    const observer = new MutationObserver(() => {\n" +
+            "        optimizeLayout();\n" +
+            "        setupAutoGrow();\n" +
+            "    });\n" +
+            "    if (document.body) {\n" +
+            "        observer.observe(document.body, { childList: true, subtree: true });\n" +
+            "    }\n" +
+            "})();";
+
+    private void showScriptsManagerDialog() {
+        runOnUiThread(() -> {
+            if (scriptsManagerDialog != null && scriptsManagerDialog.isShowing()) {
+                scriptsManagerDialog.dismiss();
+            }
+            scriptsManagerDialog = new android.app.Dialog(MainActivity.this);
+            scriptsManagerDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+            WebView webView = new WebView(MainActivity.this);
+            WebSettings ws = webView.getSettings();
+            ws.setJavaScriptEnabled(true);
+            ws.setDomStorageEnabled(true);
+            ws.setAllowFileAccess(false);
+            ws.setAllowContentAccess(false);
+            webView.setWebChromeClient(new WebChromeClient());
+
+            webView.addJavascriptInterface(new Object() {
+                @JavascriptInterface
+                public String getScriptsJson() {
+                    SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                    String json = prefs.getString("user_scripts", null);
+                    if (json == null || json.trim().isEmpty()) {
+                        json = getDefaultScriptsJson();
+                        prefs.edit().putString("user_scripts", json).apply();
+                    }
+                    return json;
+                }
+
+                @JavascriptInterface
+                public void saveScriptsJson(String json) {
+                    SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                    prefs.edit().putString("user_scripts", json).apply();
+                    if (chatWebView != null) {
+                        runOnUiThread(() -> {
+                            String currentUrl = chatWebView.getUrl();
+                            injectUserScripts(chatWebView, currentUrl);
+                        });
+                    }
+                }
+
+                @JavascriptInterface
+                public void dismissScriptsManager() {
+                    runOnUiThread(() -> {
+                        if (scriptsManagerDialog != null) {
+                            scriptsManagerDialog.dismiss();
+                        }
+                    });
+                }
+            }, "AndroidScripts");
+
+            webView.loadUrl("file:///android_asset/scripts_manager.html");
+            scriptsManagerDialog.setContentView(webView);
+            scriptsManagerDialog.show();
+
+            Window window = scriptsManagerDialog.getWindow();
+            if (window != null) {
+                window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+                window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            }
+        });
+    }
+
+    private String getDefaultScriptsJson() {
+        try {
+            org.json.JSONArray array = new org.json.JSONArray();
+            org.json.JSONObject script = new org.json.JSONObject();
+            script.put("id", "default_duck_clean");
+            script.put("name", "Duck.ai Ultra Clean Unified");
+            script.put("author", "iJahangard (https://github.com/iJahangard)");
+            script.put("description", "Unified, clean split-screen with centered items and coordinated floating buttons. Created by iJahangard.");
+            script.put("match", "*://*.duck.ai/*, *://*.duckduckgo.com/*");
+            script.put("enabled", false);
+            script.put("code", DEFAULT_SAMPLE_USER_SCRIPT);
+            array.put(script);
+            return array.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "Error building default scripts JSON", e);
+            return "[]";
+        }
+    }
+
+    private void injectUserScripts(WebView view, String url) {
+        if (isSafeMode || view == null) return;
+        try {
+            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+            String scriptsJson = prefs.getString("user_scripts", null);
+            if (scriptsJson == null || scriptsJson.trim().isEmpty()) {
+                scriptsJson = getDefaultScriptsJson();
+                prefs.edit().putString("user_scripts", scriptsJson).apply();
+            }
+            org.json.JSONArray array = new org.json.JSONArray(scriptsJson);
+            for (int i = 0; i < array.length(); i++) {
+                org.json.JSONObject item = array.getJSONObject(i);
+                if (!item.optBoolean("enabled", false)) {
+                    continue;
+                }
+                String code = item.optString("code", "");
+                if (code.trim().isEmpty()) {
+                    continue;
+                }
+
+                String matchPatterns = item.optString("match", "*://*.duck.ai/*");
+                if (!matchesAnyPattern(url, matchPatterns)) {
+                    continue;
+                }
+
+                String wrapped = wrapUserScriptCode(code);
+                safeEvaluateJavascript(view, wrapped);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error injecting user scripts", e);
+        }
+    }
+
+    private boolean matchesAnyPattern(String url, String matchPatterns) {
+        if (url == null || matchPatterns == null || matchPatterns.trim().isEmpty()) {
+            return true;
+        }
+        String[] patterns = matchPatterns.split(",");
+        for (String pattern : patterns) {
+            String p = pattern.trim();
+            if (p.isEmpty() || p.equals("*")) return true;
+            String regex = p.replace(".", "\\.")
+                            .replace("**", ".*")
+                            .replace("*", ".*")
+                            .replace("?", ".");
+            if (url.matches(regex) || url.contains("duck.ai") || url.contains("duckduckgo.com")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String wrapUserScriptCode(String code) {
+        return "(function() {\n" +
+               "  try {\n" +
+               "    if (typeof window.GM_addStyle === 'undefined') {\n" +
+               "      window.GM_addStyle = function(css) {\n" +
+               "        var head = document.getElementsByTagName('head')[0] || document.documentElement;\n" +
+               "        var style = document.createElement('style');\n" +
+               "        style.type = 'text/css';\n" +
+               "        style.appendChild(document.createTextNode(css));\n" +
+               "        head.appendChild(style);\n" +
+               "        return style;\n" +
+               "      };\n" +
+               "    }\n" +
+               "    if (typeof GM_addStyle === 'undefined') {\n" +
+               "      var GM_addStyle = window.GM_addStyle;\n" +
+               "    }\n" +
+               "    if (typeof unsafeWindow === 'undefined') {\n" +
+               "      var unsafeWindow = window;\n" +
+               "    }\n" +
+               code + "\n" +
+               "  } catch (err) {\n" +
+               "    console.error('UserScript execution error:', err);\n" +
+               "  }\n" +
+               "})();";
+    }
+
     private String formatMarkdownFilename(String filename, String mimetype) {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
 
@@ -1453,7 +2070,7 @@ public class MainActivity extends Activity {
             return "Duck_AI_Chat_" + timestamp + ".md";
         }
 
-        // Change .txt or .text extensions to .md
+        // Change .txt, .text, or .bin extensions to .md
         if (filename.toLowerCase().endsWith(".txt")) {
             filename = filename.substring(0, filename.length() - 4) + ".md";
         } else if (filename.toLowerCase().endsWith(".text")) {
@@ -1467,27 +2084,75 @@ public class MainActivity extends Activity {
             filename += ".md";
         }
 
-        // Replace generic names like download.md, chat.md, export.md with a formatted timestamped name
         int dotIndex = filename.lastIndexOf('.');
         String baseName = (dotIndex > 0) ? filename.substring(0, dotIndex).trim() : filename;
+        String ext = (dotIndex > 0) ? filename.substring(dotIndex) : "";
+
+        // Ensure timestamp is present on markdown exports and generic names
         if (baseName.equalsIgnoreCase("download") || baseName.equalsIgnoreCase("chat") || baseName.equalsIgnoreCase("export") || baseName.equalsIgnoreCase("duckduckgo_chat") || baseName.equalsIgnoreCase("duck_ai_chat")) {
-            filename = "Duck_AI_Chat_" + timestamp + ".md";
+            filename = "Duck_AI_Chat_" + timestamp + ext;
+        } else if (ext.equalsIgnoreCase(".md") && !baseName.matches(".*_\\d{8}_\\d{6}$")) {
+            filename = baseName + "_" + timestamp + ext;
         }
 
         return filename;
     }
 
-    private void saveBlobToFile(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
+    private void promptAndSaveBlob(String base64Data, String mimetype, String contentDisposition, String currentUrl) {
+        runOnUiThread(() -> {
+            String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
+            if (filename == null || filename.isEmpty()) {
+                filename = URLUtilCompat.guessFileName(currentUrl, contentDisposition, mimetype);
+            }
+            filename = formatMarkdownFilename(filename, mimetype);
+            final String defaultFilename = filename;
+            final String finalMimetype = defaultFilename.endsWith(".md") ? "text/markdown" : mimetype;
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+            builder.setTitle("Save File");
+
+            final EditText input = new EditText(MainActivity.this);
+            input.setSingleLine(true);
+            input.setText(defaultFilename);
+            int dotIndex = defaultFilename.lastIndexOf('.');
+            if (dotIndex > 0) {
+                input.setSelection(0, dotIndex);
+            } else {
+                input.selectAll();
+            }
+
+            android.widget.FrameLayout container = new android.widget.FrameLayout(MainActivity.this);
+            android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.leftMargin = (int) (20 * getResources().getDisplayMetrics().density);
+            params.rightMargin = (int) (20 * getResources().getDisplayMetrics().density);
+            params.topMargin = (int) (8 * getResources().getDisplayMetrics().density);
+            params.bottomMargin = (int) (8 * getResources().getDisplayMetrics().density);
+            input.setLayoutParams(params);
+            container.addView(input);
+            builder.setView(container);
+
+            builder.setPositiveButton("Save", (dialog, which) -> {
+                String chosenName = input.getText().toString().trim();
+                if (chosenName.isEmpty()) {
+                    chosenName = defaultFilename;
+                }
+                if (defaultFilename.endsWith(".md") && !chosenName.toLowerCase().endsWith(".md")) {
+                    chosenName += ".md";
+                }
+                executeSaveBlobToFile(base64Data, finalMimetype, chosenName);
+            });
+            builder.setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.cancel());
+            builder.show();
+        });
+    }
+
+    private void executeSaveBlobToFile(String base64Data, String mimetype, String filename) {
         if (base64Data.contains(",")) {
             base64Data = base64Data.split(",")[1];
         }
 
-        String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
-        if (filename == null || filename.isEmpty()) {
-            filename = URLUtilCompat.guessFileName(currentUrl, contentDisposition, mimetype);
-        }
-
-        filename = formatMarkdownFilename(filename, mimetype);
         if (filename.endsWith(".md")) {
             mimetype = "text/markdown";
         }
@@ -1521,7 +2186,6 @@ public class MainActivity extends Activity {
                     os.write(data);
                     fileUri = Uri.fromFile(file);
                 }
-                // Force media scanner to scan the file so it shows in downloads library
                 MediaScannerConnection.scanFile(this, new String[]{file.getAbsolutePath()}, new String[]{mimetype}, null);
             }
 
@@ -1537,16 +2201,62 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void startStandardDownload(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+    private void promptAndStartStandardDownload(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+        runOnUiThread(() -> {
+            String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
+            if (filename == null || filename.isEmpty()) {
+                filename = URLUtilCompat.guessFileName(url, contentDisposition, mimetype);
+            }
+            filename = formatMarkdownFilename(filename, mimetype);
+            final String defaultFilename = filename;
+            final String finalMimetype = defaultFilename.endsWith(".md") ? "text/markdown" : mimetype;
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+            builder.setTitle("Download File");
+
+            final EditText input = new EditText(MainActivity.this);
+            input.setSingleLine(true);
+            input.setText(defaultFilename);
+            int dotIndex = defaultFilename.lastIndexOf('.');
+            if (dotIndex > 0) {
+                input.setSelection(0, dotIndex);
+            } else {
+                input.selectAll();
+            }
+
+            android.widget.FrameLayout container = new android.widget.FrameLayout(MainActivity.this);
+            android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.leftMargin = (int) (20 * getResources().getDisplayMetrics().density);
+            params.rightMargin = (int) (20 * getResources().getDisplayMetrics().density);
+            params.topMargin = (int) (8 * getResources().getDisplayMetrics().density);
+            params.bottomMargin = (int) (8 * getResources().getDisplayMetrics().density);
+            input.setLayoutParams(params);
+            container.addView(input);
+            builder.setView(container);
+
+            builder.setPositiveButton("Download", (dialog, which) -> {
+                String chosenName = input.getText().toString().trim();
+                if (chosenName.isEmpty()) {
+                    chosenName = defaultFilename;
+                }
+                if (defaultFilename.endsWith(".md") && !chosenName.toLowerCase().endsWith(".md")) {
+                    chosenName += ".md";
+                }
+                executeStandardDownload(url, userAgent, finalMimetype, chosenName);
+            });
+            builder.setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.cancel());
+            builder.show();
+        });
+    }
+
+    private void executeStandardDownload(String url, String userAgent, String mimetype, String filename) {
         Uri source = Uri.parse(url);
         DownloadManager.Request request = new DownloadManager.Request(source);
         request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url));
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-        String filename = URLUtilCompat.getFilenameFromContentDisposition(contentDisposition);
-        if (filename == null)
-            filename = URLUtilCompat.guessFileName(url, contentDisposition, mimetype);
 
-        filename = formatMarkdownFilename(filename, mimetype);
         if (filename.endsWith(".md")) {
             mimetype = "text/markdown";
             request.setMimeType(mimetype);
@@ -1625,11 +2335,11 @@ public class MainActivity extends Activity {
             if (writeGranted) {
                 if (isPendingBlob) {
                     if (pendingBlobData != null) {
-                        saveBlobToFile(pendingBlobData, pendingBlobMimetype, pendingBlobContentDisposition, pendingBlobCurrentUrl);
+                        promptAndSaveBlob(pendingBlobData, pendingBlobMimetype, pendingBlobContentDisposition, pendingBlobCurrentUrl);
                     }
                 } else {
                     if (pendingDownloadUrl != null) {
-                        startStandardDownload(pendingDownloadUrl, pendingDownloadUserAgent, pendingDownloadContentDisposition, pendingDownloadMimetype, pendingDownloadContentLength);
+                        promptAndStartStandardDownload(pendingDownloadUrl, pendingDownloadUserAgent, pendingDownloadContentDisposition, pendingDownloadMimetype, pendingDownloadContentLength);
                     }
                 }
             } else {
@@ -1804,18 +2514,104 @@ public class MainActivity extends Activity {
             } else {
                 chatWebView.loadUrl("https://duck.ai/");
             }
-        } else if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
+        } else if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action) || Intent.ACTION_PROCESS_TEXT.equals(action)) {
             String sharedText = null;
-            if (type != null && (type.startsWith("image/") || "application/pdf".equals(type))) {
-                Uri streamUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                if (streamUri != null) {
-                    if (type.startsWith("image/")) {
-                        String ext = ".jpg";
-                        if (type.contains("png")) ext = ".png";
-                        else if (type.contains("webp")) ext = ".webp";
-                        pendingSharedFileUri = saveUriToTempFile(streamUri, ext);
-                    } else if ("application/pdf".equals(type)) {
-                        pendingSharedFileUri = saveUriToTempFile(streamUri, ".pdf");
+            java.util.ArrayList<Uri> streamUris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            Uri streamUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (streamUris != null && !streamUris.isEmpty()) {
+                pendingSharedFileUris = streamUris;
+                pendingSharedFileUri = streamUris.get(0);
+            } else if (streamUri != null) {
+                String ext = DocConverter.getFileExtension(this, streamUri, type);
+                if ("pdf".equalsIgnoreCase(ext) || "application/pdf".equals(type) || (type != null && type.contains("pdf"))) {
+                    String filename = DocConverter.getFileName(this, streamUri);
+                    DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Checking " + filename + "...", null);
+                    DocConverter.getInstance(this).processNativePdf(streamUri, new DocConverter.DocumentProcessingCallback() {
+                        @Override
+                        public void onStatusUpdate(String status) {
+                            progress.setMessage(status);
+                        }
+
+                        @Override
+                        public void onTextReady(String text) {}
+
+                        @Override
+                        public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
+                            progress.dismiss();
+                            pendingSharedFileUris = pdfUris;
+                            pendingSharedFileUri = (pdfUris != null && !pdfUris.isEmpty()) ? pdfUris.get(0) : null;
+                            if (pdfUris != null && pdfUris.size() > 1) {
+                                showCustomBanner("PDF split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
+                            } else {
+                                showCustomBanner("Tap 📎 to attach the shared file");
+                            }
+                            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                            boolean continueLastChat = prefs.getBoolean("continue_last_chat", false);
+                            if (continueLastChat) {
+                                pendingContinueLastChat = true;
+                            }
+                            String docSuffix = prefs.getString("shared_doc_suffix", "");
+                            if (docSuffix != null && !docSuffix.trim().isEmpty()) {
+                                loadDuckChatPrompt(docSuffix);
+                            } else {
+                                chatWebView.loadUrl("https://duck.ai/chat");
+                            }
+                        }
+
+                        @Override
+                        public void onError(String errorMessage) {
+                            progress.dismiss();
+                            pendingSharedFileUri = saveUriToTempFile(streamUri, ".pdf");
+                        }
+                    });
+                    return;
+                } else if (DocConverter.isSupportedDoc(this, streamUri, type) || DocConverter.isPlainTextDoc(this, streamUri, type)) {
+                    String filename = DocConverter.getFileName(this, streamUri);
+                    DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Processing " + filename + "...", null);
+                    DocConverter.getInstance(this).processDocument(streamUri, type, new DocConverter.DocumentProcessingCallback() {
+                        @Override
+                        public void onStatusUpdate(String status) {
+                            progress.setMessage(status);
+                        }
+
+                        @Override
+                        public void onTextReady(String text) {
+                            progress.dismiss();
+                            loadDuckChatPrompt(text);
+                        }
+
+                        @Override
+                        public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
+                            progress.dismiss();
+                            pendingSharedFileUris = pdfUris;
+                            pendingSharedFileUri = (pdfUris != null && !pdfUris.isEmpty()) ? pdfUris.get(0) : null;
+                            if (pdfUris != null && pdfUris.size() > 1) {
+                                showCustomBanner("Document split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
+                            } else {
+                                showCustomBanner("Tap 📎 to attach the converted document");
+                            }
+                            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                            String docSuffix = prefs.getString("shared_doc_suffix", "");
+                            if (docSuffix != null && !docSuffix.trim().isEmpty()) {
+                                loadDuckChatPrompt(docSuffix);
+                            } else {
+                                chatWebView.loadUrl("https://duck.ai/chat");
+                            }
+                        }
+
+                        @Override
+                        public void onError(String errorMessage) {
+                            progress.dismiss();
+                            Toast.makeText(MainActivity.this, "Failed: " + errorMessage, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    return;
+                } else {
+                    if (type != null && type.startsWith("image/")) {
+                        String imgExt = ".jpg";
+                        if (type.contains("png")) imgExt = ".png";
+                        else if (type.contains("webp")) imgExt = ".webp";
+                        pendingSharedFileUri = saveUriToTempFile(streamUri, imgExt);
                     }
                 }
             } else if (Intent.ACTION_SEND.equals(action) && "text/plain".equals(type)) {
@@ -1826,8 +2622,12 @@ public class MainActivity extends Activity {
                     sharedText = text.toString();
             }
 
-            if (pendingSharedFileUri != null) {
-                showCustomBanner("Tap 📎 to attach the shared file");
+            if (pendingSharedFileUris != null || pendingSharedFileUri != null) {
+                if (pendingSharedFileUris != null && pendingSharedFileUris.size() > 1) {
+                    showCustomBanner("Shared " + pendingSharedFileUris.size() + " files! Tap 📎 to attach");
+                } else {
+                    showCustomBanner("Tap 📎 to attach the shared file");
+                }
                 SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
                 boolean continueLastChat = prefs.getBoolean("continue_last_chat", false);
                 if (continueLastChat) {
@@ -1835,47 +2635,12 @@ public class MainActivity extends Activity {
                 }
                 String docSuffix = prefs.getString("shared_doc_suffix", "");
                 if (docSuffix != null && !docSuffix.trim().isEmpty()) {
-                    try {
-                        org.json.JSONObject handoffObj = new org.json.JSONObject();
-                        handoffObj.put("aiChatPrompt", docSuffix);
-                        handoffObj.put("aiChatAutoPrompt", false);
-                        String handoffJson = handoffObj.toString();
-                        
-                        Uri.Builder builder = Uri.parse("https://duck.ai/chat").buildUpon()
-                                .appendQueryParameter("q", docSuffix)
-                                .appendQueryParameter("handoff", handoffJson);
-                        chatWebView.loadUrl(builder.build().toString());
-                    } catch (org.json.JSONException e) {
-                        Log.e(TAG, "Error building handoff JSON", e);
-                        chatWebView.loadUrl("https://duck.ai/chat?q=" + Uri.encode(docSuffix));
-                    }
+                    loadDuckChatPrompt(docSuffix);
                 } else {
                     chatWebView.loadUrl("https://duck.ai/chat");
                 }
             } else if (sharedText != null) {
-                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-                boolean continueLastChat = prefs.getBoolean("continue_last_chat", false);
-                String suffix = prefs.getString("ask_duck_suffix", "");
-                if (suffix != null && !suffix.trim().isEmpty()) {
-                    sharedText = sharedText + "\n\n" + suffix;
-                }
-                if (continueLastChat) {
-                    pendingContinueLastChat = true;
-                }
-                try {
-                    org.json.JSONObject handoffObj = new org.json.JSONObject();
-                    handoffObj.put("aiChatPrompt", sharedText);
-                    handoffObj.put("aiChatAutoPrompt", false);
-                    String handoffJson = handoffObj.toString();
-                    
-                    Uri.Builder builder = Uri.parse("https://duck.ai/chat").buildUpon()
-                            .appendQueryParameter("q", sharedText)
-                            .appendQueryParameter("handoff", handoffJson);
-                    chatWebView.loadUrl(builder.build().toString());
-                } catch (org.json.JSONException e) {
-                    Log.e(TAG, "Error building handoff JSON", e);
-                    chatWebView.loadUrl("https://duck.ai/chat?q=" + Uri.encode(sharedText));
-                }
+                loadDuckChatPrompt(sharedText);
             } else {
                 chatWebView.loadUrl("https://duck.ai/");
             }
@@ -1904,7 +2669,7 @@ public class MainActivity extends Activity {
             pendingVoiceChat = false;
             safeEvaluateJavascript(chatWebView, "window.isVoiceChatActive = false;");
             SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-            boolean autoFocus = prefs.getBoolean("auto_focus_keyboard", true);
+            boolean autoFocus = prefs.getBoolean("auto_focus_keyboard", false);
             if (autoFocus) {
                 String currentUrl = chatWebView.getUrl();
                 if (currentUrl != null && currentUrl.startsWith("https://duck.ai")) {
@@ -1927,6 +2692,38 @@ public class MainActivity extends Activity {
                     || chatWebView.getUrl().equals("about:blank")) {
                 chatWebView.loadUrl("https://duck.ai/");
             }
+        }
+    }
+
+    private void loadDuckChatPrompt(String promptText) {
+        if (promptText == null || promptText.trim().isEmpty()) return;
+        SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+        boolean continueLastChat = prefs.getBoolean("continue_last_chat", false);
+        if (continueLastChat) {
+            pendingContinueLastChat = true;
+        }
+        String suffix = prefs.getString("shared_doc_suffix", "");
+        if (suffix == null || suffix.trim().isEmpty()) {
+            suffix = prefs.getString("ask_duck_suffix", "");
+        }
+        String fullPrompt = promptText;
+        if (suffix != null && !suffix.trim().isEmpty()) {
+            fullPrompt = promptText + "\n\n" + suffix;
+        }
+
+        try {
+            org.json.JSONObject handoffObj = new org.json.JSONObject();
+            handoffObj.put("aiChatPrompt", fullPrompt);
+            handoffObj.put("aiChatAutoPrompt", false);
+            String handoffJson = handoffObj.toString();
+
+            Uri.Builder builder = Uri.parse("https://duck.ai/chat").buildUpon()
+                    .appendQueryParameter("q", fullPrompt)
+                    .appendQueryParameter("handoff", handoffJson);
+            chatWebView.loadUrl(builder.build().toString());
+        } catch (org.json.JSONException e) {
+            Log.e(TAG, "Error building handoff JSON", e);
+            chatWebView.loadUrl("https://duck.ai/chat?q=" + Uri.encode(fullPrompt));
         }
     }
 
@@ -2019,6 +2816,10 @@ public class MainActivity extends Activity {
     private class MyWebViewClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            if (url == null) return false;
+            if (url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("javascript:") || url.startsWith("file:")) {
+                return false;
+            }
             Uri uri = Uri.parse(url);
             String host = uri.getHost();
             
@@ -2028,24 +2829,20 @@ public class MainActivity extends Activity {
             }
 
             // Redirect all other external links to the default browser
-            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-            startActivity(intent);
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                startActivity(intent);
+            } catch (Throwable t) {
+                Log.e(TAG, "Error opening external link: " + url, t);
+            }
             return true;
         }
 
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
+            hasInjectedProgressJs = false;
             progressBar.setVisibility(View.VISIBLE);
-            if (isSafeMode) return;
-            safeEvaluateJavascript(view, BLOB_JS);
-            safeEvaluateJavascript(view, CLIPBOARD_JS);
-            safeEvaluateJavascript(view, IMAGE_ZOOM_MONITOR_JS);
-            safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
-            SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-            if (prefs.getBoolean("rtl_resolver", false)) {
-                safeEvaluateJavascript(view, RTL_RESOLVER_JS);
-            }
         }
 
         @Override
@@ -2060,15 +2857,13 @@ public class MainActivity extends Activity {
             if (prefs.getBoolean("rtl_resolver", false)) {
                 safeEvaluateJavascript(view, RTL_RESOLVER_JS);
             }
-            if (!pendingVoiceChat && (pendingAutoFocus || prefs.getBoolean("auto_focus_keyboard", true))) {
+            if (!pendingVoiceChat && (pendingAutoFocus || prefs.getBoolean("auto_focus_keyboard", false))) {
                 safeEvaluateJavascript(view, AUTO_FOCUS_JS);
                 pendingAutoFocus = false;
             }
             safeEvaluateJavascript(view, SETTINGS_INJECT_JS);
             safeEvaluateJavascript(view, SWIPE_SCROLL_JS);
-            if (url != null && (url.startsWith("https://duck.ai") || url.startsWith("https://duckduckgo.com"))) {
-                safeEvaluateJavascript(view, DUMP_CHATS_JS);
-            }
+            injectUserScripts(view, url);
             if (pendingContinueLastChat) {
                 safeEvaluateJavascript(view, CONTINUE_CHAT_JS);
             }
@@ -2117,7 +2912,8 @@ public class MainActivity extends Activity {
         public void onProgressChanged(WebView view, int newProgress) {
             super.onProgressChanged(view, newProgress);
             if (isSafeMode) return;
-            if (newProgress > 5) {
+            if (newProgress > 5 && !hasInjectedProgressJs) {
+                hasInjectedProgressJs = true;
                 safeEvaluateJavascript(view, BLOB_JS);
                 safeEvaluateJavascript(view, CLIPBOARD_JS);
                 safeEvaluateJavascript(view, SETTINGS_INJECT_JS);
@@ -2129,7 +2925,7 @@ public class MainActivity extends Activity {
             }
             if (newProgress == 100) {
                 SharedPreferences prefs = view.getContext().getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-                if (!pendingVoiceChat && prefs.getBoolean("auto_focus_keyboard", true)) {
+                if (!pendingVoiceChat && prefs.getBoolean("auto_focus_keyboard", false)) {
                     safeEvaluateJavascript(view, AUTO_FOCUS_JS);
                 }
             }
@@ -2156,6 +2952,12 @@ public class MainActivity extends Activity {
 
         public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback,
                 WebChromeClient.FileChooserParams fileChooserParams) {
+            if (pendingSharedFileUris != null && !pendingSharedFileUris.isEmpty()) {
+                filePathCallback.onReceiveValue(pendingSharedFileUris.toArray(new Uri[0]));
+                pendingSharedFileUris = null;
+                pendingSharedFileUri = null;
+                return true;
+            }
             if (pendingSharedFileUri != null) {
                 filePathCallback.onReceiveValue(new Uri[] { pendingSharedFileUri });
                 pendingSharedFileUri = null;
@@ -2199,7 +3001,7 @@ public class MainActivity extends Activity {
     private void openCamera() {
         try {
             File photoFile = new File(getExternalCacheDir(), "camera_photo_" + System.currentTimeMillis() + ".jpg");
-            cameraImageUri = FileProvider.getUriForFile(this, "org.duckassist.app.fileprovider", photoFile);
+            cameraImageUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", photoFile);
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             intent.putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri);
             startActivityForResult(intent, CAMERA_REQUEST_CODE);
@@ -2217,6 +3019,7 @@ public class MainActivity extends Activity {
         Intent i = new Intent(Intent.ACTION_GET_CONTENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("*/*");
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivityForResult(Intent.createChooser(i, "File Chooser"), FILE_CHOOSER_REQUEST_CODE);
     }
 
@@ -2228,11 +3031,112 @@ public class MainActivity extends Activity {
                 return;
             Uri[] result = null;
             if (resultCode == RESULT_OK && intent != null) {
-                String dataString = intent.getDataString();
-                if (dataString != null) {
-                    result = new Uri[] { Uri.parse(dataString) };
+                try {
+                    result = WebChromeClient.FileChooserParams.parseResult(resultCode, intent);
+                } catch (Exception ignored) {}
+                if (result == null) {
+                    if (intent.getClipData() != null) {
+                        int count = intent.getClipData().getItemCount();
+                        result = new Uri[count];
+                        for (int idx = 0; idx < count; idx++) {
+                            result[idx] = intent.getClipData().getItemAt(idx).getUri();
+                        }
+                    } else if (intent.getData() != null) {
+                        result = new Uri[] { intent.getData() };
+                    } else if (intent.getDataString() != null) {
+                        result = new Uri[] { Uri.parse(intent.getDataString()) };
+                    }
                 }
             }
+
+            if (result != null && result.length > 0 && result[0] != null) {
+                Uri fileUri = result[0];
+                String ext = DocConverter.getFileExtension(this, fileUri, null);
+                if ("pdf".equalsIgnoreCase(ext)) {
+                    DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Checking PDF pages...", null);
+                    DocConverter.getInstance(this).processNativePdf(fileUri, new DocConverter.DocumentProcessingCallback() {
+                        @Override
+                        public void onStatusUpdate(String status) {
+                            progress.setMessage(status);
+                        }
+
+                        @Override
+                        public void onTextReady(String text) {}
+
+                        @Override
+                        public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
+                            progress.dismiss();
+                            if (pdfUris != null && pdfUris.size() > 1) {
+                                if (mUploadMessage != null) {
+                                    mUploadMessage.onReceiveValue(null);
+                                    mUploadMessage = null;
+                                }
+                                pendingSharedFileUris = pdfUris;
+                                pendingSharedFileUri = pdfUris.get(0);
+                                showCustomBanner("PDF split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
+                            } else {
+                                if (mUploadMessage != null) {
+                                    mUploadMessage.onReceiveValue(new Uri[]{ fileUri });
+                                    mUploadMessage = null;
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onError(String errorMessage) {
+                            progress.dismiss();
+                            if (mUploadMessage != null) {
+                                mUploadMessage.onReceiveValue(new Uri[]{ fileUri });
+                                mUploadMessage = null;
+                            }
+                        }
+                    });
+                    return;
+                }
+                if (DocConverter.isSupportedDoc(this, fileUri, null) || DocConverter.isPlainTextDoc(this, fileUri, null)) {
+                    mUploadMessage.onReceiveValue(null);
+                    mUploadMessage = null;
+                    String filename = DocConverter.getFileName(this, fileUri);
+                    DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Processing " + filename + "...", null);
+                    DocConverter.getInstance(this).processDocument(fileUri, null, new DocConverter.DocumentProcessingCallback() {
+                        @Override
+                        public void onStatusUpdate(String status) {
+                            progress.setMessage(status);
+                        }
+
+                        @Override
+                        public void onTextReady(String text) {
+                            progress.dismiss();
+                            loadDuckChatPrompt(text);
+                        }
+
+                        @Override
+                        public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
+                            progress.dismiss();
+                            pendingSharedFileUris = pdfUris;
+                            pendingSharedFileUri = (pdfUris != null && !pdfUris.isEmpty()) ? pdfUris.get(0) : null;
+                            if (pdfUris != null && pdfUris.size() > 1) {
+                                showCustomBanner("Document split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
+                            } else {
+                                showCustomBanner("Document converted to PDF! Tap 📎 to attach it");
+                            }
+                            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                            String docSuffix = prefs.getString("shared_doc_suffix", "");
+                            if (docSuffix != null && !docSuffix.trim().isEmpty()) {
+                                loadDuckChatPrompt(docSuffix);
+                            }
+                        }
+
+                        @Override
+                        public void onError(String errorMessage) {
+                            progress.dismiss();
+                            Toast.makeText(MainActivity.this, "Conversion failed: " + errorMessage, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    return;
+                }
+            }
+
             mUploadMessage.onReceiveValue(result);
             mUploadMessage = null;
         } else if (requestCode == CAMERA_REQUEST_CODE) {

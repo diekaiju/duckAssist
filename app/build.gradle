@@ -13,8 +13,9 @@ android {
         applicationId "org.duckassist.app"
         minSdk 24
         targetSdk 35
-        versionCode 249
-        versionName "0.4.4"
+        versionCode 251
+        versionName "0.4.6"
+        manifestPlaceholders = [appName: "@string/app_name"]
     }
 
     signingConfigs {
@@ -37,7 +38,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            debuggable true
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+            manifestPlaceholders = [appName: "duckAssist (Debug)"]
+        }
         release {
+            manifestPlaceholders = [appName: "@string/app_name"]
             debuggable false
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'

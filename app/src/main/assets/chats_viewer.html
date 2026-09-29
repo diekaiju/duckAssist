@@ -1071,6 +1071,10 @@
                         .map(p => {
                             if (!p) return '';
                             if (typeof p === 'string') return p;
+                            if (p.type === 'file' || p.type === 'document' || p.type === 'attachment' || p.fileName || p.file) {
+                                const fName = p.fileName || p.name || (p.file && p.file.name) || p.title || 'Document';
+                                return p.text || p.content || ('📎 [Attached: ' + fName + ']');
+                            }
                             return p.text || p.content || p.value || p.delta || '';
                         })
                         .filter(Boolean)
@@ -1084,7 +1088,15 @@
                 if (base && typeof base === 'object') {
                     if (Array.isArray(base.parts)) {
                         const partsText = base.parts
-                            .map(p => (typeof p === 'string' ? p : (p.text || p.content || p.value || '')))
+                            .map(p => {
+                                if (!p) return '';
+                                if (typeof p === 'string') return p;
+                                if (p.type === 'file' || p.type === 'document' || p.type === 'attachment' || p.fileName || p.file) {
+                                    const fName = p.fileName || p.name || (p.file && p.file.name) || p.title || 'Document';
+                                    return p.text || p.content || ('📎 [Attached: ' + fName + ']');
+                                }
+                                return p.text || p.content || p.value || '';
+                            })
                             .filter(Boolean)
                             .join('\n');
                         if (partsText) return partsText;
@@ -1092,7 +1104,7 @@
                     if (Array.isArray(base)) {
                         return base.map(item => getMessageContent(item)).filter(Boolean).join('\n');
                     }
-                    base = base.text || base.content || base.message || base.value || base.val || '';
+                    base = base.text || base.content || base.message || base.value || base.val || (base.fileName ? ('📎 [Attached: ' + base.fileName + ']') : '');
                 }
                 
                 if (typeof base === 'string') return base;
@@ -1147,6 +1159,54 @@
                 const seenIds = new Set();
                 if (!m || typeof m !== 'object') return images;
 
+                function addImg(id, url, prompt, model, fileName) {
+                    const finalUrl = url || (id && imageMap[id]) || null;
+                    const key = id || finalUrl || ('img_' + images.length);
+                    if (!seenIds.has(key)) {
+                        seenIds.add(key);
+                        images.push({
+                            id: id,
+                            url: finalUrl,
+                            prompt: prompt || "",
+                            model: model || "Attached Media",
+                            fileName: fileName || null
+                        });
+                    }
+                }
+
+                // 1. Check m.content object
+                if (m.content && typeof m.content === 'object') {
+                    const cImgs = m.content.images || m.content.files || m.content.attachments || [];
+                    if (Array.isArray(cImgs)) {
+                        cImgs.forEach(ci => {
+                            if (!ci) return;
+                            const id = ci.id || ci.uuid || (ci.savedData && ci.savedData.id);
+                            const url = ci.url || ci.src || ci.dataUrl || ci.data || null;
+                            const modelName = ci.type === 'file' ? 'Attached File' : 'Attached Image';
+                            addImg(id, url, m.content.text || "", modelName, ci.fileName || ci.name);
+                        });
+                    }
+                }
+
+                // 2. Direct message properties
+                const directArrays = [m.images, m.files, m.attachments];
+                directArrays.forEach(arr => {
+                    if (Array.isArray(arr)) {
+                        arr.forEach(ci => {
+                            if (!ci) return;
+                            if (typeof ci === 'string') {
+                                addImg(ci, null, "", "Attached Image");
+                            } else {
+                                const id = ci.id || ci.uuid || (ci.savedData && ci.savedData.id);
+                                const url = ci.url || ci.src || ci.dataUrl || ci.data || null;
+                                const modelName = ci.type === 'file' ? 'Attached File' : 'Attached Image';
+                                addImg(id, url, "", modelName, ci.fileName || ci.name);
+                            }
+                        });
+                    }
+                });
+
+                // 3. Parts array
                 if (Array.isArray(m.parts)) {
                     let currentPrompt = "";
                     m.parts.forEach(p => {
@@ -1166,47 +1226,25 @@
                         if (p.type === 'ui-component' && (p.name === 'generate-image' || p.toolName === 'GenerateImage')) {
                             const imgId = (p.savedData && p.savedData.id) || p.id || (p.data && p.data.id) || (p.data && p.data.uuid);
                             const modelName = (p.data && p.data.imageModelDisplayName) || "AI Image Generator";
-                            const dataUrl = (imgId && imageMap[imgId]) || (p.data && p.data.url) || p.url || null;
-                            const key = imgId || ('img_' + images.length);
-
-                            if (!seenIds.has(key)) {
-                                seenIds.add(key);
-                                images.push({
-                                    id: imgId,
-                                    url: dataUrl,
-                                    prompt: currentPrompt,
-                                    model: modelName
-                                });
-                            }
+                            const dataUrl = (p.data && p.data.url) || p.url || null;
+                            addImg(imgId, dataUrl, currentPrompt, modelName);
                         } else if (p.type === 'image' || p.type === 'image_url' || p.image_url) {
                             const imgId = p.id || p.uuid || (p.savedData && p.savedData.id);
-                            const url = p.url || p.image_url || (p.image_url && p.image_url.url) || (imgId && imageMap[imgId]);
-                            if (url) {
-                                const key = imgId || url;
-                                if (!seenIds.has(key)) {
-                                    seenIds.add(key);
-                                    images.push({
-                                        id: imgId,
-                                        url: url,
-                                        prompt: currentPrompt,
-                                        model: "Image"
-                                    });
-                                }
-                            }
+                            const url = p.url || p.image_url || (p.image_url && p.image_url.url) || null;
+                            addImg(imgId, url, currentPrompt, "Image");
+                        } else if (p.type === 'file' || p.type === 'document' || p.type === 'attachment') {
+                            const imgId = p.id || p.uuid || (p.savedData && p.savedData.id);
+                            const url = p.url || p.dataUrl || null;
+                            addImg(imgId, url, "", "Attached File", p.fileName || p.name);
                         }
                     });
                 }
 
+                // 4. FileRefs array
                 if (Array.isArray(m.fileRefs)) {
                     m.fileRefs.forEach(refId => {
-                        if (refId && imageMap[refId] && !seenIds.has(refId)) {
-                            seenIds.add(refId);
-                            images.push({
-                                id: refId,
-                                url: imageMap[refId],
-                                prompt: "",
-                                model: "Attached Image"
-                            });
+                        if (refId) {
+                            addImg(refId, null, "", "Attached File");
                         }
                     });
                 }
@@ -1636,6 +1674,53 @@
                             }
                         }
 
+                        function renderMediaCard(img, parentEl) {
+                            const imgCard = document.createElement('div');
+                            imgCard.className = 'generated-image-card';
+                            const badge = img.model || (img.fileName ? 'Attached File' : 'Attached Image');
+                            if (img.url) {
+                                if (img.url.startsWith('data:image/') || img.url.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) || !img.fileName) {
+                                    imgCard.innerHTML = `
+                                        <div class="generated-image-wrapper">
+                                            <img src="${escapeHTML(img.url)}" class="chat-generated-img" onclick="openLightbox('${escapeHTML(img.url)}')" alt="${escapeHTML(badge)}" />
+                                        </div>
+                                        <div class="image-card-footer">
+                                            <div class="image-card-header-bar">
+                                                <span class="image-model-badge">${escapeHTML(badge)}</span>
+                                                <button type="button" class="image-download-btn" onclick="downloadImage('${escapeHTML(img.url)}', '${img.id || 'attached_image'}')">
+                                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                    Download
+                                                </button>
+                                            </div>
+                                            ${img.prompt ? `<div class="image-prompt-box"><strong>Prompt:</strong> ${escapeHTML(img.prompt)}</div>` : ''}
+                                        </div>
+                                    `;
+                                } else {
+                                    imgCard.innerHTML = `
+                                        <div class="image-card-footer">
+                                            <div class="image-card-header-bar">
+                                                <span class="image-model-badge">📄 ${escapeHTML(img.fileName || badge)}</span>
+                                                <button type="button" class="image-download-btn" onclick="downloadImage('${escapeHTML(img.url)}', '${img.fileName || img.id || 'attached_doc'}')">
+                                                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                                    Download
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            } else {
+                                imgCard.innerHTML = `
+                                    <div class="image-card-footer">
+                                        <div class="image-card-header-bar">
+                                            <span class="image-model-badge">📎 ${escapeHTML(img.fileName || badge)}</span>
+                                            <span style="font-size:11px; color:var(--text-secondary);">Attachment Cached</span>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            parentEl.appendChild(imgCard);
+                        }
+
                         if (isUser) {
                             const userWrapper = document.createElement('div');
                             userWrapper.className = 'user-message-container';
@@ -1657,6 +1742,9 @@
                             actDiv.innerHTML = actionsHtml;
                             if (actDiv.firstElementChild) {
                                 userWrapper.appendChild(actDiv.firstElementChild);
+                            }
+                            if (Array.isArray(msg.images) && msg.images.length > 0) {
+                                msg.images.forEach(img => renderMediaCard(img, userWrapper));
                             }
                             container.appendChild(userWrapper);
                         } else {
@@ -1701,38 +1789,7 @@
                             }
 
                             if (Array.isArray(msg.images) && msg.images.length > 0) {
-                                msg.images.forEach(img => {
-                                    const imgCard = document.createElement('div');
-                                    imgCard.className = 'generated-image-card';
-                                    if (img.url) {
-                                        imgCard.innerHTML = `
-                                            <div class="generated-image-wrapper">
-                                                <img src="${escapeHTML(img.url)}" class="chat-generated-img" onclick="openLightbox('${escapeHTML(img.url)}')" alt="Generated Image" />
-                                            </div>
-                                            <div class="image-card-footer">
-                                                <div class="image-card-header-bar">
-                                                    <span class="image-model-badge">${escapeHTML(img.model || "Generated Image")}</span>
-                                                    <button type="button" class="image-download-btn" onclick="downloadImage('${escapeHTML(img.url)}', '${img.id || 'ai_image'}')">
-                                                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                        Download
-                                                    </button>
-                                                </div>
-                                                ${img.prompt ? `<div class="image-prompt-box"><strong>Prompt:</strong> ${escapeHTML(img.prompt)}</div>` : ''}
-                                            </div>
-                                        `;
-                                    } else {
-                                        imgCard.innerHTML = `
-                                            <div class="image-card-footer">
-                                                <div class="image-card-header-bar">
-                                                    <span class="image-model-badge">${escapeHTML(img.model || "Generated Image")}</span>
-                                                    <span style="font-size:11px; color:var(--text-secondary);">Image Offline</span>
-                                                </div>
-                                                ${img.prompt ? `<div class="image-prompt-box"><strong>Prompt:</strong> ${escapeHTML(img.prompt)}</div>` : ''}
-                                            </div>
-                                        `;
-                                    }
-                                    assistantWrapper.appendChild(imgCard);
-                                });
+                                msg.images.forEach(img => renderMediaCard(img, assistantWrapper));
                             }
                             
                             container.appendChild(assistantWrapper);

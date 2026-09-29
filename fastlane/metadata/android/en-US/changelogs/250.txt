@@ -1,0 +1,3 @@
+- Added Custom User Scripts Manager to add, edit, and toggle custom JavaScript & UserScripts for Duck.ai.
+- Added pre-loaded "Duck.ai Ultra Clean Unified" script by iJahangard (disabled by default).
+- Fixed string escaping issues in Dutch translations.

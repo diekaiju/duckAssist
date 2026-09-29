@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>anydoc Converter Host</title>
+    <script src="anydoc_wasm.js"></script>
+</head>
+<body>
+<script>
+    let isWasmReady = false;
+    let initError = null;
+    let initPromise = null;
+
+    function base64ToUint8Array(base64) {
+        const raw = atob(base64);
+        const rawLength = raw.length;
+        const array = new Uint8Array(rawLength);
+        for (let i = 0; i < rawLength; i++) {
+            array[i] = raw.charCodeAt(i);
+        }
+        return array;
+    }
+
+    window.initConverter = function(wasmBase64) {
+        if (isWasmReady) {
+            if (window.DocBridge && window.DocBridge.onWasmReady) {
+                window.DocBridge.onWasmReady(true, "");
+            }
+            return Promise.resolve(true);
+        }
+        if (initPromise) {
+            return initPromise;
+        }
+
+        initPromise = (async () => {
+            try {
+                if (wasmBase64) {
+                    const wasmBytes = base64ToUint8Array(wasmBase64);
+                    await window.anydoc.init(wasmBytes);
+                } else {
+                    await window.anydoc.init();
+                }
+                isWasmReady = true;
+                initError = null;
+                if (window.DocBridge && window.DocBridge.onWasmReady) {
+                    window.DocBridge.onWasmReady(true, "");
+                }
+                return true;
+            } catch (e) {
+                initPromise = null;
+                initError = (e && e.message) ? e.message : String(e);
+                if (window.DocBridge && window.DocBridge.onWasmReady) {
+                    window.DocBridge.onWasmReady(false, initError);
+                }
+                return false;
+            }
+        })();
+
+        return initPromise;
+    };
+
+    window.convertDocument = async function(id, fileBase64, formatOrPath) {
+        try {
+            if (!isWasmReady && initPromise) {
+                await initPromise;
+            }
+            if (!isWasmReady) {
+                const err = initError || "Converter WASM engine not ready";
+                if (window.DocBridge && window.DocBridge.onConversionResult) {
+                    window.DocBridge.onConversionResult(id, false, err);
+                }
+                return;
+            }
+
+            const fileBytes = base64ToUint8Array(fileBase64);
+            let format = null;
+
+            if (formatOrPath) {
+                if (formatOrPath.indexOf('.') !== -1) {
+                    format = window.anydoc.formatFromPath(formatOrPath);
+                } else {
+                    format = formatOrPath.trim().toLowerCase().replace(/^\./, '');
+                }
+            }
+
+            if (!format) {
+                format = window.anydoc.formatFromBytes(fileBytes);
+            }
+
+            const markdown = window.anydoc.toMarkdownBytes(fileBytes, format || undefined);
+            if (window.DocBridge && window.DocBridge.onConversionResult) {
+                window.DocBridge.onConversionResult(id, true, markdown);
+            }
+        } catch (e) {
+            const err = (e && e.message) ? e.message : String(e);
+            if (window.DocBridge && window.DocBridge.onConversionResult) {
+                window.DocBridge.onConversionResult(id, false, err);
+            }
+        }
+    };
+
+    // Report bridge readiness
+    document.addEventListener("DOMContentLoaded", function() {
+        if (window.DocBridge && window.DocBridge.onPageLoaded) {
+            window.DocBridge.onPageLoaded();
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Scripts</title>
+    <style>
+        :root {
+            --bg-color: #16171a;
+            --card-bg: #212226;
+            --card-hover: #292a2f;
+            --accent-color: #de5833;
+            --accent-hover: #e06948;
+            --text-primary: #f5f6f7;
+            --text-secondary: #9fa2a6;
+            --border-color: #2c2d30;
+            --input-bg: #191a1d;
+            --toggle-bg: #3e4045;
+            --badge-bg: #2c2e35;
+            --badge-text: #e06948;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-color: #f7f7f7;
+                --card-bg: #ffffff;
+                --card-hover: #f0f0f0;
+                --accent-color: #de5833;
+                --accent-hover: #e06948;
+                --text-primary: #222222;
+                --text-secondary: #656565;
+                --border-color: #e5e5e5;
+                --input-bg: #fdfdfd;
+                --toggle-bg: #d5d5d5;
+                --badge-bg: #ffece5;
+                --badge-text: #de5833;
+                --danger-color: #ef4444;
+                --danger-hover: #dc2626;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 16px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            animation: slideUp 0.3s ease-out;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 85vh;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(12px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        header {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background-color: var(--card-bg);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s, color 0.2s;
+            width: 36px;
+            height: 36px;
+        }
+
+        .icon-btn:hover {
+            background-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .icon-btn:active {
+            transform: scale(0.95);
+        }
+
+        h1 {
+            font-size: 19px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--card-hover);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .content {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Script Card */
+        .script-card {
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .script-card:hover {
+            border-color: rgba(222, 88, 51, 0.4);
+        }
+
+        .script-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .script-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .script-author {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: normal;
+        }
+
+        .script-author a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        .script-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .badges-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 2px;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background-color: var(--badge-bg);
+            color: var(--badge-text);
+            font-weight: 600;
+            font-family: monospace;
+        }
+
+        .script-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+            margin-top: 4px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-card-action {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-card-action:hover {
+            background-color: var(--border-color);
+        }
+
+        .btn-card-action.delete {
+            color: var(--danger-color);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-card-action.delete:hover {
+            background-color: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Toggle switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--toggle-bg);
+            transition: .2s ease;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .2s ease;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 16px;
+            text-align: center;
+            gap: 12px;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            width: 56px;
+            height: 56px;
+            color: var(--accent-color);
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .empty-state h3 {
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        /* Editor Modal */
+        #editorView {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-input {
+            width: 100%;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 13.5px;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .code-editor {
+            width: 100%;
+            min-height: 280px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 12.5px;
+            line-height: 1.5;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text-primary);
+            resize: vertical;
+            white-space: pre;
+            tab-size: 4;
+        }
+
+        .code-editor:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(222, 88, 51, 0.2);
+        }
+
+        .editor-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- List View -->
+        <div id="listView" style="display: flex; flex-direction: column; height: 100%;">
+            <header>
+                <div class="header-left">
+                    <button class="icon-btn" onclick="dismiss()" aria-label="Back to Settings">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                    </button>
+                    <h1>User Scripts</h1>
+                </div>
+                <button class="btn-primary" onclick="openNewScriptEditor()">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    New Script
+                </button>
+            </header>
+
+            <div class="content" id="scriptsContainer">
+                <!-- Dynamically filled -->
+            </div>
+        </div>
+
+        <!-- Editor View -->
+        <div id="editorView">
+            <header>
+                <div class="header-left">
+                    <button class="icon-btn" onclick="closeEditor()" aria-label="Back">
+                        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                    </button>
+                    <h1 id="editorTitle">Edit Script</h1>
+                </div>
+                <button class="btn-primary" onclick="saveCurrentScript()">Save</button>
+            </header>
+
+            <div class="content">
+                <input type="hidden" id="editScriptId">
+
+                <div class="form-group">
+                    <label class="form-label" for="editScriptName">Script Name</label>
+                    <input type="text" id="editScriptName" class="form-input" placeholder="e.g. My Custom Script">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="editScriptDesc">Description</label>
+                    <input type="text" id="editScriptDesc" class="form-input" placeholder="Short description of what the script does">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="editScriptAuthor">Author</label>
+                    <input type="text" id="editScriptAuthor" class="form-input" placeholder="e.g. iJahangard (https://github.com/iJahangard)">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="editScriptMatch">URL Match Patterns (comma-separated)</label>
+                    <input type="text" id="editScriptMatch" class="form-input" placeholder="*://*.duck.ai/*, *://*.duckduckgo.com/*">
+                </div>
+
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label class="form-label" for="editScriptCode">JavaScript Code</label>
+                        <button type="button" class="btn-card-action" onclick="parseMetadataFromCode()" style="margin-bottom: 4px;">Extract Header Info</button>
+                    </div>
+                    <textarea id="editScriptCode" class="code-editor" placeholder="// Type or paste your JavaScript code here..."></textarea>
+                </div>
+
+                <div class="setting-row" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 0;">
+                    <span class="form-label">Enable this script</span>
+                    <label class="switch">
+                        <input type="checkbox" id="editScriptEnabled">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="editor-footer">
+                    <button class="btn-secondary" onclick="closeEditor()">Cancel</button>
+                    <button class="btn-primary" onclick="saveCurrentScript()">Save Script</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div id="confirmModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.65); z-index:100; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px);">
+            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:16px; padding:22px; max-width:340px; width:100%; box-shadow:0 12px 32px rgba(0,0,0,0.5); display:flex; flex-direction:column; gap:12px;">
+                <h3 style="font-size:17px; font-weight:700; color:var(--text-primary); margin:0;">Delete Script</h3>
+                <p id="confirmModalMsg" style="font-size:13.5px; color:var(--text-secondary); line-height:1.4; margin:0;">Are you sure you want to delete this script?</p>
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+                    <button type="button" class="btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+                    <button type="button" class="btn-danger" onclick="confirmDelete()">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_SAMPLE_SCRIPT = {
+            id: "default_duck_clean",
+            name: "Duck.ai Ultra Clean Unified",
+            author: "iJahangard (https://github.com/iJahangard)",
+            description: "Unified, clean split-screen with centered items and coordinated floating buttons. Created by iJahangard.",
+            match: "*://*.duck.ai/*, *://*.duckduckgo.com/*",
+            enabled: false,
+            code: `// ==UserScript==
+// @name         Duck.ai Ultra Clean Unified
+// @namespace    http://tampermonkey.net/
+// @version      8.1
+// @description  Unified, clean split-screen with centered items and coordinated floating buttons.
+// @author       iJahangard (https://github.com/iJahangard)
+// @match        *://*.duck.ai/*
+// @match        *://*.duckduckgo.com/*
+// @run-at       document-idle
+// @grant        GM_addStyle
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    GM_addStyle(\`
+        /* Main Container */
+        .duck-main-box {
+            position: relative !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 46px 0 0 !important;
+            margin-bottom: -6px !important;
+            box-sizing: border-box !important;
+        }
+
+        .duck-ta-row {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+        }
+
+        textarea[name="user-prompt"] {
+            width: 100% !important;
+            min-height: 40px !important;
+            max-height: 160px !important;
+            border-radius: 18px !important;
+            padding: 10px 15px !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            line-height: 1.4 !important;
+        }
+
+        /* Floating buttons */
+        .duck-fab-btn, .duck-fab-4 {
+            position: absolute !important;
+            right: 0px !important;
+            width: 38px !important;
+            height: 38px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            z-index: 10 !important;
+            transition: transform 0.2s ease, filter 0.2s ease !important;
+            box-sizing: border-box !important;
+        }
+
+        .duck-fab-btn {
+            background-color: var(--dynamic-send-bg, #3b82f6) !important;
+            color: var(--dynamic-send-color, #ffffff) !important;
+        }
+        .duck-fab-btn svg { color: #ffffff !important; }
+        .duck-fab-btn:hover, .duck-send-btn:hover, .duck-stop-btn:hover {
+            transform: scale(0.9) !important;
+            filter: brightness(1.2) !important;
+        }
+
+        .duck-fab-4 { bottom: 160px !important; padding: 0 !important; justify-content: right !important; } 
+        .duck-fab-1 { bottom: 120px !important; } 
+        .duck-fab-2 { bottom: 80px !important; }  
+        .duck-fab-3 { bottom: 40px !important; }  
+
+        /* Send and Stop buttons */
+        .duck-send-btn, .duck-stop-btn {
+            position: absolute !important;
+            right: 0px !important; 
+            bottom: -12px !important;
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            z-index: 10 !important;
+            transition: transform 0.2s ease, filter 0.2s ease !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+        }
+
+        .duck-stop-btn { background-color: #E60023 !important; }
+        .duck-stop-btn svg { color: #ffffff !important; }
+
+        .duck-send-btn { background-color: #DE5833 !important; }
+        .duck-send-btn svg { color: #ffffff !important; }
+
+        /* Toolbar */
+        [data-testid="duckai-top-toolbar"],
+        [data-testid="duckai-top-toolbar"] > div {
+            height: 36px !important;
+            min-height: 38px !important;
+            max-height: 38px !important;
+            box-sizing: border-box !important;
+            align-items: right !important;
+        }
+
+        .TmiyHFYeTH6BRfiFO5eV, .WylRI_oUZA16s0qnjS1p {
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            gap: 8px !important;
+        }
+
+        .TmiyHFYeTH6BRfiFO5eV > .pjSWjOTlZyJAUFYWwJd7,
+        .WylRI_oUZA16s0qnjS1p > .pjSWjOTlZyJAUFYWwJd7,
+        .WylRI_oUZA16s0qnjS1p .PLoPNq8ZrjT3PBQhCQ4Q,
+        .WylRI_oUZA16s0qnjS1p .sVQf5w9mw0rZOdrXmKsG,
+        .WylRI_oUZA16s0qnjS1p [data-testid="feedback-prompt"] {
+            background-color: transparent !important;
+            width: auto !important;
+            margin: 0 !important;
+            display: flex !important;
+            flex: 0 0 auto !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .TmiyHFYeTH6BRfiFO5eV button, .WylRI_oUZA16s0qnjS1p button {
+            float: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 !important;
+        }
+
+        .WylRI_oUZA16s0qnjS1p button i, .WylRI_oUZA16s0qnjS1p button svg {
+            display: block !important;
+            margin: 0 !important;
+            flex-shrink: 0 !important;
+        }
+
+        .WylRI_oUZA16s0qnjS1p .sVQf5w9mw0rZOdrXmKsG > .pjSWjOTlZyJAUFYWwJd7 {
+            margin: 0 4px !important;
+        }
+
+        .DRAot9rDvc5ggNSzK6hY {
+            width: 80% !important;
+            display: flex !important;
+            margin-top: 20px !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+        }
+
+        .DRAot9rDvc5ggNSzK6hY > .BB8BdTLAPMS9cAdduzJV {
+            background-color: transparent !important;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            width: auto !important;
+            margin: 0 auto !important;
+        }
+
+        .DRAot9rDvc5ggNSzK6hY button {
+            height: 40px !important;
+            margin-right: 46px !important;
+            display: inline-flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex: 0 0 auto !important;
+            white-space: nowrap !important;
+            float: none !important;
+        }
+
+        .DRAot9rDvc5ggNSzK6hY button svg {
+            display: inline-block !important;
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 8px !important;
+            vertical-align: middle !important;
+        }
+    \`);
+
+    function getCommonAncestor(node1, node2) {
+        let parents = [];
+        let current = node1;
+        while (current) {
+            parents.push(current);
+            current = current.parentElement;
+        }
+        current = node2;
+        while (current) {
+            if (parents.includes(current)) return current;
+            current = current.parentElement;
+        }
+        return null;
+    }
+
+    function syncSendButtonStyles() {
+        const sendBtn = document.querySelector('button[aria-label="Send"]');
+        if (sendBtn) {
+            const computedStyle = window.getComputedStyle(sendBtn);
+            const bgColor = computedStyle.backgroundColor;
+
+            if (bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                document.documentElement.style.setProperty('--dynamic-send-bg', bgColor);
+                const rgb = bgColor.match(/\\d+/g);
+                if (rgb && rgb.length >= 3) {
+                    const r = parseInt(rgb[0]);
+                    const g = parseInt(rgb[1]);
+                    const b = parseInt(rgb[2]);
+                    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                    const textColor = yiq >= 128 ? '#000000' : '#ffffff';
+                    document.documentElement.style.setProperty('--dynamic-send-color', textColor);
+                }
+            }
+        }
+    }
+
+    function optimizeLayout() {
+        const textarea = document.querySelector('textarea[name="user-prompt"]');
+        const sendBtn = document.querySelector('button[aria-label="Send"]');
+        const stopBtn = document.querySelector('button[aria-label="Stop generating"]');
+
+        if (textarea && (sendBtn || stopBtn)) {
+            const activeActionBtn = sendBtn || stopBtn;
+            const mainBox = getCommonAncestor(textarea, activeActionBtn);
+
+            if (mainBox) {
+                mainBox.classList.add('duck-main-box');
+                Array.from(mainBox.children).forEach(child => {
+                    if (child.contains(textarea)) child.classList.add('duck-ta-row');
+                    if (child.contains(activeActionBtn)) child.classList.add('duck-tb-row');
+                });
+            }
+
+            const mapWrapper = (selector, classNames) => {
+                const btn = document.querySelector(selector);
+                if (btn && btn.parentElement) {
+                    classNames.split(' ').forEach(cls => btn.parentElement.classList.add(cls));
+                }
+            };
+
+            mapWrapper('button[data-testid="duckai-attach-button"]', 'duck-fab-btn duck-fab-1');
+            mapWrapper('button[data-testid="duckai-tools-button"]', 'duck-fab-btn duck-fab-2');
+            mapWrapper('button[data-testid="duckai-reasoning-button"]', 'duck-fab-btn duck-fab-3');
+            mapWrapper('button[data-testid="model-picker-button"]', 'duck-fab-4');
+            mapWrapper('button[aria-label="Send"]', 'duck-send-btn');
+            mapWrapper('button[aria-label="Stop generating"]', 'duck-stop-btn');
+
+            syncSendButtonStyles();
+        }
+    }
+
+    function setupAutoGrow() {
+        const textarea = document.querySelector('textarea[name="user-prompt"]');
+        if (textarea && !textarea.dataset.autogrow) {
+            textarea.dataset.autogrow = "true";
+            const resize = () => {
+                textarea.style.height = '48px';
+                textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+            };
+            textarea.addEventListener('input', resize);
+            resize();
+        }
+    }
+
+    const observer = new MutationObserver(() => {
+        optimizeLayout();
+        setupAutoGrow();
+    });
+
+    if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+})();`
+        };
+
+        let scriptsList = [];
+
+        function init() {
+            loadScripts();
+            renderList();
+        }
+
+        function loadScripts() {
+            if (typeof AndroidScripts !== 'undefined' && AndroidScripts.getScriptsJson) {
+                try {
+                    const json = AndroidScripts.getScriptsJson();
+                    if (json && json.trim() !== "" && json !== "[]") {
+                        scriptsList = JSON.parse(json);
+                    } else {
+                        scriptsList = [ DEFAULT_SAMPLE_SCRIPT ];
+                        saveToAndroid();
+                    }
+                } catch (e) {
+                    console.error("Error loading scripts:", e);
+                    scriptsList = [ DEFAULT_SAMPLE_SCRIPT ];
+                }
+            } else {
+                scriptsList = [ DEFAULT_SAMPLE_SCRIPT ];
+            }
+        }
+
+        function saveToAndroid() {
+            const json = JSON.stringify(scriptsList);
+            if (typeof AndroidScripts !== 'undefined' && AndroidScripts.saveScriptsJson) {
+                AndroidScripts.saveScriptsJson(json);
+            }
+        }
+
+        function renderList() {
+            const container = document.getElementById('scriptsContainer');
+            container.innerHTML = '';
+
+            if (scriptsList.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 18 22 12 16 6"></polyline>
+                            <polyline points="8 6 2 12 8 18"></polyline>
+                        </svg>
+                        <h3>No User Scripts Yet</h3>
+                        <p>Add custom JavaScript or UserScripts to customize Duck.ai.</p>
+                        <button class="btn-primary" onclick="openNewScriptEditor()" style="margin-top: 8px;">+ Add New Script</button>
+                    </div>
+                `;
+                return;
+            }
+
+            scriptsList.forEach((script, index) => {
+                const card = document.createElement('div');
+                card.className = 'script-card';
+
+                const matches = (script.match || '*://*.duck.ai/*').split(',').map(m => m.trim());
+                const badgesHtml = matches.map(m => `<span class="badge">${escapeHtml(m)}</span>`).join('');
+
+                let authorHtml = '';
+                if (script.author) {
+                    if (script.author.includes('github.com')) {
+                        authorHtml = `by <a href="#" onclick="event.preventDefault();">${escapeHtml(script.author)}</a>`;
+                    } else {
+                        authorHtml = `by ${escapeHtml(script.author)}`;
+                    }
+                }
+
+                card.innerHTML = `
+                    <div class="script-card-header">
+                        <div>
+                            <div class="script-title">
+                                <span>${escapeHtml(script.name || 'Untitled Script')}</span>
+                                ${authorHtml ? `<span class="script-author">${authorHtml}</span>` : ''}
+                            </div>
+                            <div class="script-desc">${escapeHtml(script.description || 'No description provided')}</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" ${script.enabled ? 'checked' : ''} onchange="toggleScript(${index}, this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="badges-row">
+                        ${badgesHtml}
+                    </div>
+
+                    <div class="script-card-footer">
+                        <div class="card-actions">
+                            <button class="btn-card-action" onclick="editScript(${index})">
+                                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                                Edit
+                            </button>
+                            <button class="btn-card-action delete" onclick="deleteScript(${index})">
+                                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Delete
+                            </button>
+                        </div>
+                        <span style="font-size: 11px; color: var(--text-secondary);">${script.enabled ? 'Active' : 'Disabled'}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function toggleScript(index, isEnabled) {
+            scriptsList[index].enabled = isEnabled;
+            saveToAndroid();
+            renderList();
+        }
+
+        let scriptToDeleteIndex = -1;
+
+        function deleteScript(index) {
+            const script = scriptsList[index];
+            if (!script) return;
+            scriptToDeleteIndex = index;
+            const msgEl = document.getElementById('confirmModalMsg');
+            if (msgEl) {
+                msgEl.textContent = `Are you sure you want to delete "${script.name || 'Untitled Script'}"?`;
+            }
+            const modal = document.getElementById('confirmModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeConfirmModal() {
+            scriptToDeleteIndex = -1;
+            const modal = document.getElementById('confirmModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function confirmDelete() {
+            if (scriptToDeleteIndex >= 0 && scriptToDeleteIndex < scriptsList.length) {
+                scriptsList.splice(scriptToDeleteIndex, 1);
+                saveToAndroid();
+                renderList();
+            }
+            closeConfirmModal();
+        }
+
+        function openNewScriptEditor() {
+            document.getElementById('editorTitle').innerText = 'New Script';
+            document.getElementById('editScriptId').value = 'script_' + Date.now();
+            document.getElementById('editScriptName').value = '';
+            document.getElementById('editScriptDesc').value = '';
+            document.getElementById('editScriptAuthor').value = '';
+            document.getElementById('editScriptMatch').value = '*://*.duck.ai/*, *://*.duckduckgo.com/*';
+            document.getElementById('editScriptEnabled').checked = true;
+            document.getElementById('editScriptCode').value = `// ==UserScript==\n// @name         New Custom Script\n// @match        *://*.duck.ai/*\n// @run-at       document-idle\n// ==/UserScript==\n\n(function() {\n    'use strict';\n\n    console.log('Custom script running on duck.ai!');\n})();`;
+            
+            document.getElementById('listView').style.display = 'none';
+            document.getElementById('editorView').style.display = 'flex';
+        }
+
+        function editScript(index) {
+            const script = scriptsList[index];
+            document.getElementById('editorTitle').innerText = 'Edit Script';
+            document.getElementById('editScriptId').value = script.id || ('script_' + index);
+            document.getElementById('editScriptName').value = script.name || '';
+            document.getElementById('editScriptDesc').value = script.description || '';
+            document.getElementById('editScriptAuthor').value = script.author || '';
+            document.getElementById('editScriptMatch').value = script.match || '*://*.duck.ai/*';
+            document.getElementById('editScriptEnabled').checked = script.enabled !== undefined ? script.enabled : true;
+            document.getElementById('editScriptCode').value = script.code || '';
+
+            document.getElementById('listView').style.display = 'none';
+            document.getElementById('editorView').style.display = 'flex';
+        }
+
+        function closeEditor() {
+            document.getElementById('editorView').style.display = 'none';
+            document.getElementById('listView').style.display = 'flex';
+        }
+
+        function parseMetadataFromCode() {
+            const code = document.getElementById('editScriptCode').value;
+            const nameMatch = code.match(/@name\s+(.+)/);
+            const descMatch = code.match(/@description\s+(.+)/);
+            const authorMatch = code.match(/@author\s+(.+)/);
+            const matchMatches = [...code.matchAll(/@match\s+(.+)/g)].map(m => m[1].trim());
+
+            if (nameMatch && nameMatch[1]) {
+                document.getElementById('editScriptName').value = nameMatch[1].trim();
+            }
+            if (descMatch && descMatch[1]) {
+                document.getElementById('editScriptDesc').value = descMatch[1].trim();
+            }
+            if (authorMatch && authorMatch[1]) {
+                document.getElementById('editScriptAuthor').value = authorMatch[1].trim();
+            }
+            if (matchMatches.length > 0) {
+                document.getElementById('editScriptMatch').value = matchMatches.join(', ');
+            }
+        }
+
+        function saveCurrentScript() {
+            const id = document.getElementById('editScriptId').value || ('script_' + Date.now());
+            const name = document.getElementById('editScriptName').value.trim() || 'Untitled Script';
+            const description = document.getElementById('editScriptDesc').value.trim();
+            const author = document.getElementById('editScriptAuthor').value.trim();
+            const match = document.getElementById('editScriptMatch').value.trim() || '*://*.duck.ai/*';
+            const enabled = document.getElementById('editScriptEnabled').checked;
+            const code = document.getElementById('editScriptCode').value;
+
+            const existingIdx = scriptsList.findIndex(s => s.id === id);
+            const scriptData = { id, name, description, author, match, enabled, code };
+
+            if (existingIdx >= 0) {
+                scriptsList[existingIdx] = scriptData;
+            } else {
+                scriptsList.push(scriptData);
+            }
+
+            saveToAndroid();
+            closeEditor();
+            renderList();
+        }
+
+        function dismiss() {
+            if (typeof AndroidScripts !== 'undefined' && AndroidScripts.dismissScriptsManager) {
+                AndroidScripts.dismissScriptsManager();
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
