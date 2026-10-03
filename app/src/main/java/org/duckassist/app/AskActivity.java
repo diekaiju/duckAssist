@@ -43,8 +43,11 @@ public class AskActivity extends Activity {
         if (Intent.ACTION_SEND.equals(action)) {
             Uri streamUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
             if (streamUri != null) {
-                // 1. Fallback for native images (no conversion needed)
-                if (type != null && type.startsWith("image/")) {
+                android.content.SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                boolean useNewUpload = prefs.getBoolean("use_new_upload", true);
+
+                // 1. Fallback for native images or when normal upload is selected
+                if (!useNewUpload || (type != null && type.startsWith("image/"))) {
                     Intent chatIntent = new Intent(this, ChatActivity.class);
                     chatIntent.setAction(Intent.ACTION_SEND);
                     chatIntent.setType(type);

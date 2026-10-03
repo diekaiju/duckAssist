@@ -9,6 +9,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.pdf.PdfDocument;
 import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
@@ -229,28 +230,29 @@ public class DocConverter {
         if (content == null) content = "";
         List<Uri> resultUris = new ArrayList<>();
 
-        // Standard A4 dimensions in points (72 points per inch): 595 x 842
-        int pageWidth = 595;
-        int pageHeight = 842;
-        int margin = 40;
+        // Standard A3 dimensions in points (72 points per inch): 842 x 1191 (2x A4 text capacity)
+        int pageWidth = 842;
+        int pageHeight = 1191;
+        int margin = 8;
         int printableWidth = Math.max(100, pageWidth - (margin * 2));
         int printableHeight = Math.max(100, pageHeight - (margin * 2));
 
         TextPaint textPaint = new TextPaint();
         textPaint.setColor(Color.BLACK);
-        textPaint.setTextSize(11f);
+        textPaint.setTextSize(8f);
+        textPaint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         textPaint.setAntiAlias(true);
 
         StaticLayout layout;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             layout = StaticLayout.Builder.obtain(content, 0, content.length(), textPaint, printableWidth)
                     .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-                    .setLineSpacing(0f, 1.25f)
+                    .setLineSpacing(0f, 0.85f)
                     .setIncludePad(false)
                     .build();
         } else {
             layout = new StaticLayout(content, textPaint, printableWidth,
-                    Layout.Alignment.ALIGN_NORMAL, 1.25f, 0f, false);
+                    Layout.Alignment.ALIGN_NORMAL, 0.85f, 0f, false);
         }
 
         int lineCount = layout.getLineCount();

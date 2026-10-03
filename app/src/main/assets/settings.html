@@ -347,6 +347,17 @@
                 </label>
             </div>
 
+            <div class="setting-row">
+                <div class="setting-info">
+                    <div class="setting-label">New Upload Mechanism</div>
+                    <div class="setting-desc">Enable offline document conversion and multi-page PDF splitting before upload. Turn off for normal upload.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="use_new_upload">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
             <!--
             <div class="setting-row">
                 <div class="setting-info">
@@ -432,6 +443,7 @@
                 continue_last_chat: document.getElementById('continue_last_chat').checked,
                 auto_focus_keyboard: document.getElementById('auto_focus_keyboard').checked,
                 rtl_resolver: document.getElementById('rtl_resolver') ? document.getElementById('rtl_resolver').checked : false,
+                use_new_upload: document.getElementById('use_new_upload') ? document.getElementById('use_new_upload').checked : true,
                 prompt_on_launch: promptLaunchEl ? promptLaunchEl.checked : false,
                 ask_duck_suffix: document.getElementById('ask_duck_suffix').value,
                 shared_doc_suffix: document.getElementById('shared_doc_suffix').value
@@ -453,6 +465,10 @@
                     const rtlResolverEl = document.getElementById('rtl_resolver');
                     if (rtlResolverEl) {
                         rtlResolverEl.checked = settings.rtl_resolver || false;
+                    }
+                    const useNewUploadEl = document.getElementById('use_new_upload');
+                    if (useNewUploadEl) {
+                        useNewUploadEl.checked = settings.use_new_upload !== undefined ? settings.use_new_upload : true;
                     }
                     const promptLaunchEl = document.getElementById('prompt_on_launch');
                     if (promptLaunchEl) {

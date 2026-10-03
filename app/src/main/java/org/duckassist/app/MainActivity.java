@@ -1281,6 +1281,7 @@ public class MainActivity extends Activity {
                         obj.put("continue_last_chat", prefs.getBoolean("continue_last_chat", false));
                         obj.put("auto_focus_keyboard", prefs.getBoolean("auto_focus_keyboard", false));
                         obj.put("rtl_resolver", prefs.getBoolean("rtl_resolver", false));
+                        obj.put("use_new_upload", prefs.getBoolean("use_new_upload", true));
                         obj.put("prompt_on_launch", prefs.getBoolean("prompt_on_launch", false));
                         obj.put("ask_duck_suffix", prefs.getString("ask_duck_suffix", ""));
                         obj.put("shared_doc_suffix", prefs.getString("shared_doc_suffix", ""));
@@ -1311,6 +1312,7 @@ public class MainActivity extends Activity {
                              .putBoolean("continue_last_chat", obj.optBoolean("continue_last_chat", false))
                              .putBoolean("auto_focus_keyboard", autoFocus)
                              .putBoolean("rtl_resolver", newRtl)
+                             .putBoolean("use_new_upload", obj.optBoolean("use_new_upload", true))
                              .putBoolean("prompt_on_launch", promptLaunch)
                              .putString("ask_duck_suffix", obj.optString("ask_duck_suffix", ""))
                              .putString("shared_doc_suffix", obj.optString("shared_doc_suffix", ""))
@@ -1354,6 +1356,7 @@ public class MainActivity extends Activity {
                              .putBoolean("continue_last_chat", obj.optBoolean("continue_last_chat", false))
                              .putBoolean("auto_focus_keyboard", autoFocus)
                              .putBoolean("rtl_resolver", newRtl)
+                             .putBoolean("use_new_upload", obj.optBoolean("use_new_upload", true))
                              .putBoolean("prompt_on_launch", promptLaunch)
                              .putString("ask_duck_suffix", obj.optString("ask_duck_suffix", ""))
                              .putString("shared_doc_suffix", obj.optString("shared_doc_suffix", ""))
@@ -2522,8 +2525,10 @@ public class MainActivity extends Activity {
                 pendingSharedFileUris = streamUris;
                 pendingSharedFileUri = streamUris.get(0);
             } else if (streamUri != null) {
+                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                boolean useNewUpload = prefs.getBoolean("use_new_upload", true);
                 String ext = DocConverter.getFileExtension(this, streamUri, type);
-                if ("pdf".equalsIgnoreCase(ext) || "application/pdf".equals(type) || (type != null && type.contains("pdf"))) {
+                if (useNewUpload && ("pdf".equalsIgnoreCase(ext) || "application/pdf".equals(type) || (type != null && type.contains("pdf")))) {
                     String filename = DocConverter.getFileName(this, streamUri);
                     DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Checking " + filename + "...", null);
                     DocConverter.getInstance(this).processNativePdf(streamUri, new DocConverter.DocumentProcessingCallback() {
@@ -2565,7 +2570,7 @@ public class MainActivity extends Activity {
                         }
                     });
                     return;
-                } else if (DocConverter.isSupportedDoc(this, streamUri, type) || DocConverter.isPlainTextDoc(this, streamUri, type)) {
+                } else if (useNewUpload && (DocConverter.isSupportedDoc(this, streamUri, type) || DocConverter.isPlainTextDoc(this, streamUri, type))) {
                     String filename = DocConverter.getFileName(this, streamUri);
                     DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Processing " + filename + "...", null);
                     DocConverter.getInstance(this).processDocument(streamUri, type, new DocConverter.DocumentProcessingCallback() {
@@ -2612,6 +2617,8 @@ public class MainActivity extends Activity {
                         if (type.contains("png")) imgExt = ".png";
                         else if (type.contains("webp")) imgExt = ".webp";
                         pendingSharedFileUri = saveUriToTempFile(streamUri, imgExt);
+                    } else {
+                        pendingSharedFileUri = saveUriToTempFile(streamUri, (ext != null && !ext.isEmpty()) ? ("." + ext) : "");
                     }
                 }
             } else if (Intent.ACTION_SEND.equals(action) && "text/plain".equals(type)) {
@@ -3050,90 +3057,94 @@ public class MainActivity extends Activity {
             }
 
             if (result != null && result.length > 0 && result[0] != null) {
-                Uri fileUri = result[0];
-                String ext = DocConverter.getFileExtension(this, fileUri, null);
-                if ("pdf".equalsIgnoreCase(ext)) {
-                    DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Checking PDF pages...", null);
-                    DocConverter.getInstance(this).processNativePdf(fileUri, new DocConverter.DocumentProcessingCallback() {
-                        @Override
-                        public void onStatusUpdate(String status) {
-                            progress.setMessage(status);
-                        }
+                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                boolean useNewUpload = prefs.getBoolean("use_new_upload", true);
+                if (useNewUpload) {
+                    Uri fileUri = result[0];
+                    String ext = DocConverter.getFileExtension(this, fileUri, null);
+                    if ("pdf".equalsIgnoreCase(ext)) {
+                        DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Checking PDF pages...", null);
+                        DocConverter.getInstance(this).processNativePdf(fileUri, new DocConverter.DocumentProcessingCallback() {
+                            @Override
+                            public void onStatusUpdate(String status) {
+                                progress.setMessage(status);
+                            }
 
-                        @Override
-                        public void onTextReady(String text) {}
+                            @Override
+                            public void onTextReady(String text) {}
 
-                        @Override
-                        public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
-                            progress.dismiss();
-                            if (pdfUris != null && pdfUris.size() > 1) {
-                                if (mUploadMessage != null) {
-                                    mUploadMessage.onReceiveValue(null);
-                                    mUploadMessage = null;
+                            @Override
+                            public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
+                                progress.dismiss();
+                                if (pdfUris != null && pdfUris.size() > 1) {
+                                    if (mUploadMessage != null) {
+                                        mUploadMessage.onReceiveValue(null);
+                                        mUploadMessage = null;
+                                    }
+                                    pendingSharedFileUris = pdfUris;
+                                    pendingSharedFileUri = pdfUris.get(0);
+                                    showCustomBanner("PDF split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
+                                } else {
+                                    if (mUploadMessage != null) {
+                                        mUploadMessage.onReceiveValue(new Uri[]{ fileUri });
+                                        mUploadMessage = null;
+                                    }
                                 }
-                                pendingSharedFileUris = pdfUris;
-                                pendingSharedFileUri = pdfUris.get(0);
-                                showCustomBanner("PDF split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
-                            } else {
+                            }
+
+                            @Override
+                            public void onError(String errorMessage) {
+                                progress.dismiss();
                                 if (mUploadMessage != null) {
                                     mUploadMessage.onReceiveValue(new Uri[]{ fileUri });
                                     mUploadMessage = null;
                                 }
                             }
-                        }
-
-                        @Override
-                        public void onError(String errorMessage) {
-                            progress.dismiss();
-                            if (mUploadMessage != null) {
-                                mUploadMessage.onReceiveValue(new Uri[]{ fileUri });
-                                mUploadMessage = null;
+                        });
+                        return;
+                    }
+                    if (DocConverter.isSupportedDoc(this, fileUri, null) || DocConverter.isPlainTextDoc(this, fileUri, null)) {
+                        mUploadMessage.onReceiveValue(null);
+                        mUploadMessage = null;
+                        String filename = DocConverter.getFileName(this, fileUri);
+                        DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Processing " + filename + "...", null);
+                        DocConverter.getInstance(this).processDocument(fileUri, null, new DocConverter.DocumentProcessingCallback() {
+                            @Override
+                            public void onStatusUpdate(String status) {
+                                progress.setMessage(status);
                             }
-                        }
-                    });
-                    return;
-                }
-                if (DocConverter.isSupportedDoc(this, fileUri, null) || DocConverter.isPlainTextDoc(this, fileUri, null)) {
-                    mUploadMessage.onReceiveValue(null);
-                    mUploadMessage = null;
-                    String filename = DocConverter.getFileName(this, fileUri);
-                    DocConverter.ProgressDialogController progress = DocConverter.showProgressDialog(this, "Processing " + filename + "...", null);
-                    DocConverter.getInstance(this).processDocument(fileUri, null, new DocConverter.DocumentProcessingCallback() {
-                        @Override
-                        public void onStatusUpdate(String status) {
-                            progress.setMessage(status);
-                        }
 
-                        @Override
-                        public void onTextReady(String text) {
-                            progress.dismiss();
-                            loadDuckChatPrompt(text);
-                        }
-
-                        @Override
-                        public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
-                            progress.dismiss();
-                            pendingSharedFileUris = pdfUris;
-                            pendingSharedFileUri = (pdfUris != null && !pdfUris.isEmpty()) ? pdfUris.get(0) : null;
-                            if (pdfUris != null && pdfUris.size() > 1) {
-                                showCustomBanner("Document split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
-                            } else {
-                                showCustomBanner("Document converted to PDF! Tap 📎 to attach it");
+                            @Override
+                            public void onTextReady(String text) {
+                                progress.dismiss();
+                                loadDuckChatPrompt(text);
                             }
-                            SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
-                            String docSuffix = prefs.getString("shared_doc_suffix", "");
-                            if (docSuffix != null && !docSuffix.trim().isEmpty()) {
-                                loadDuckChatPrompt(docSuffix);
-                            }
-                        }
 
-                        @Override
-                        public void onError(String errorMessage) {
-                            progress.dismiss();
-                            Toast.makeText(MainActivity.this, "Conversion failed: " + errorMessage, Toast.LENGTH_LONG).show();
-                        }
-                    });
-                    return;
+                            @Override
+                            public void onPdfReady(java.util.List<Uri> pdfUris, String originalName) {
+                                progress.dismiss();
+                                pendingSharedFileUris = pdfUris;
+                                pendingSharedFileUri = (pdfUris != null && !pdfUris.isEmpty()) ? pdfUris.get(0) : null;
+                                if (pdfUris != null && pdfUris.size() > 1) {
+                                    showCustomBanner("Document split into " + pdfUris.size() + " parts (15 pages max each)! Tap 📎 to attach");
+                                } else {
+                                    showCustomBanner("Document converted to PDF! Tap 📎 to attach it");
+                                }
+                                SharedPreferences prefs = getSharedPreferences("duck_assist_prefs", MODE_PRIVATE);
+                                String docSuffix = prefs.getString("shared_doc_suffix", "");
+                                if (docSuffix != null && !docSuffix.trim().isEmpty()) {
+                                    loadDuckChatPrompt(docSuffix);
+                                }
+                            }
+
+                            @Override
+                            public void onError(String errorMessage) {
+                                progress.dismiss();
+                                Toast.makeText(MainActivity.this, "Conversion failed: " + errorMessage, Toast.LENGTH_LONG).show();
+                            }
+                        });
+                        return;
+                    }
                 }
             }
 
