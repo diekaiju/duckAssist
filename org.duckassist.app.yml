@@ -15,9 +15,9 @@ Repo: https://github.com/diekaiju/duckAssist.git
 Binaries: https://github.com/diekaiju/duckAssist/releases/download/%v/app-release.apk
 
 Builds:
-  - versionName: 0.4.4
-    versionCode: 249
-    commit: 3edc14a8506a5f1693643b7e5d4621f37cf5e0c0
+  - versionName: 0.4.6
+    versionCode: 251
+    commit: 2fe137b59261eb6f13765a25fd4a5745f64e8af1
     subdir: app
     gradle:
       - yes
@@ -26,5 +26,5 @@ AllowedAPKSigningKeys: 98a0e07573dc1fa5291328cce91906bc4eb4237efd43e6e3d4c0c300d
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^[0-9.]+$
-CurrentVersion: 0.4.4
-CurrentVersionCode: 249
+CurrentVersion: 0.4.6
+CurrentVersionCode: 251

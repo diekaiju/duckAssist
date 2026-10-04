@@ -1,0 +1,5 @@
+- Added 100% private, on-device document conversion (Word, PowerPoint, Excel, ePub, text, code) to PDF.
+- Added automatic 15-page splitting for large PDFs and documents to fit Duck.ai upload limits.
+- Added Settings toggle to switch between New Upload Mechanism and Standard Upload.
+- Optimized text density and rendering with high-capacity digital layout.
+- Improved app startup speed and eliminated background cache lag.
