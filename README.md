@@ -10,7 +10,7 @@ Duck.ai is entirely private and secure. It requires no login, allowing you to in
 ## Downloads
 
 You can download **duckAssist** from:
-- [F-Droid](https://f-droid.org/packages/org.diekaiju.duckassist/)
+- [F-Droid](https://f-droid.org/packages/org.duckassist.app/)
 - [GitHub Releases](https://github.com/diekaiju/duckAssist/releases)
 
 ## Key Features
